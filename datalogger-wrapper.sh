@@ -56,8 +56,8 @@ log "=== DataLogger Startup Script ==="
 
 wait_for_network
 
-log "Waiting 5 minutes before starting DataLogger..."
-sleep 300
+log "Waiting 30 seconds before starting DataLogger..."
+sleep 30
 
 log "Starting DataLogger application..."
 cd /home/logger/datalogger
