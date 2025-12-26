@@ -6,6 +6,7 @@ import time
 import base64
 import requests
 import pytz
+import logging
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -13,6 +14,9 @@ from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
 from Crypto.Util.Padding import pad
+
+# Set up logging to file
+logging.basicConfig(filename='datalogger.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 
@@ -26,10 +30,19 @@ IST = pytz.timezone("Asia/Kolkata")
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading config: {e}, using defaults")
+            return get_default_config()
     # Create empty config on first run
-    default_config = {
+    default_config = get_default_config()
+    save_config(default_config)
+    return default_config
+
+def get_default_config():
+    return {
         "token_id": "",
         "device_id": "",
         "station_id": "",
@@ -37,15 +50,17 @@ def load_config():
         "datapage_url": "",
         "sensors": [],
         "fetch_send_interval_minutes": 15,
-        "logging_enabled": True,
-        "server_running": False
+        "server_running": False,
+        "last_fetch_success": "",
+        "last_send_success": ""
     }
-    save_config(default_config)
-    return default_config
 
 def save_config(config):
-    with open(CONFIG_FILE, 'w') as f:
-        json.dump(config, f, indent=2)
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=2)
+    except Exception as e:
+        print(f"Error saving config: {e}")
 
 def get_aligned_timestamp_ms():
     now = datetime.now(IST)
@@ -97,11 +112,11 @@ def generate_signature(token_id, public_key_pem):
     encrypted = cipher.encrypt(message)
     return base64.b64encode(encrypted).decode()
 
-def send_to_server(sensors, device_id, station_id, token_id, public_key_pem, endpoint="https://cems.cpcb.gov.in/v1.0/industry/data", logging=True):
+def send_to_server(sensors, device_id, station_id, token_id, public_key_pem, endpoint="https://cems.cpcb.gov.in/v1.0/industry/data", log_enabled=True):
     if not sensors:
-        if logging:
-            print("No sensor data to send")
-        return
+        if log_enabled:
+            logging.info("No sensor data to send")
+        return False, 0, ""
     plain_json = build_plain_payload(sensors, device_id, station_id)
     encrypted_payload = encrypt_payload(plain_json, token_id)
     signature = generate_signature(token_id, public_key_pem)
@@ -112,22 +127,26 @@ def send_to_server(sensors, device_id, station_id, token_id, public_key_pem, end
         "signature": signature
     }
 
-    if logging:
-        print("\n===== PLAIN JSON =====")
-        print(plain_json)
-        print("\n===== ENCRYPTED PAYLOAD =====")
-        print(encrypted_payload)
-        print("\n===== HEADERS =====")
-        for k, v in headers.items():
-            print(f"{k}: {v}")
+    if log_enabled:
+        logging.info(f"Plain JSON: {plain_json}")
 
     try:
         response = requests.post(endpoint, data=encrypted_payload, headers=headers, timeout=20)
-        if logging:
-            print(f"Send status: {response.status_code} - {response.text}")
+        logging.info(f"Send status: {response.status_code} - {response.text}")
+        print(f"Send status: {response.status_code} - {response.text}")
+        success = False
+        if response.status_code == 200:
+            try:
+                data = json.loads(response.text.strip())
+                success = data.get('msg') == 'success' and data.get('status') == 1
+            except json.JSONDecodeError:
+                pass
+        print(f"Success: {success}")
+        return success, response.status_code, response.text
     except Exception as e:
-        if logging:
-            print(f"Send error: {e}")
+        logging.error(f"Send error: {e}")
+        print(f"Send error: {e}")
+        return False, 0, str(e)
 
 def fetch_sensor_data(datapage_url, config_sensors):
     try:
@@ -159,6 +178,7 @@ def fetch_sensor_data(datapage_url, config_sensors):
                             pass
         return sensors
     except Exception as e:
+        logging.error(f"Error fetching data: {e}")
         print(f"Error fetching data: {e}")
         return {}
 
@@ -172,12 +192,16 @@ def logger_thread():
         if running and (current - last_send >= interval):
             config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
             sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors)
+            if len(sensors) == len(config_sensors):
+                config['last_fetch_success'] = datetime.now(IST).isoformat()
             if sensors:
-                if config.get('logging_enabled', True):
-                    print(f"Fetched sensors: {sensors}")
-                send_to_server(sensors, config.get('device_id', ''), config.get('station_id', ''), config.get('token_id', ''), config.get('public_key', ''), logging=config.get('logging_enabled', True))
-                if config.get('logging_enabled', True):
-                    print("Data sent.")
+                logging.info(f"Fetched sensors: {sensors}")
+                success, status, text = send_to_server(sensors, config.get('device_id', ''), config.get('station_id', ''), config.get('token_id', ''), config.get('public_key', ''), log_enabled=True)
+                if success:
+                    config['last_send_success'] = datetime.now(IST).isoformat()
+                    print(f"Set last_send_success: {config['last_send_success']}")
+                logging.info("Data sent.")
+            save_config(config)
             last_send = current
         time.sleep(5)
 
@@ -191,7 +215,6 @@ def index():
         config['public_key'] = request.form['public_key']
         config['datapage_url'] = request.form['datapage_url']
         config['fetch_send_interval_minutes'] = int(request.form['interval'])
-        config['logging_enabled'] = 'logging' in request.form
         config['server_running'] = 'running' in request.form
         sensors = []
         for i in range(len(request.form.getlist('sensor_id[]'))):
@@ -207,6 +230,17 @@ def index():
         return redirect('/')
     
     config = load_config()
+    sensor_values = {}
+    try:
+        config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
+        raw_sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors)
+        for sid, s in config_sensors.items():
+            param = s['param_name']
+            if param in raw_sensors:
+                sensor_values[sid] = raw_sensors[param]['value']
+    except Exception as e:
+        print(f"Error fetching sensor values for display: {e}")
+        sensor_values = {}
     template = """
     <!DOCTYPE html>
     <html>
@@ -234,6 +268,9 @@ def index():
     </head>
     <body>
     <h1>Datalogger Configuration</h1>
+    <h2>Status</h2>
+    <p>Last Fetch Success: {{ config.last_fetch_success }}</p>
+    <p>Last Send Success: {{ config.last_send_success }}</p>
     <form method="post">
         <label>Token ID:</label><input type="text" name="token_id" value="{{ config.token_id }}">
         <label>Device ID:</label><input type="text" name="device_id" value="{{ config.device_id }}">
@@ -241,17 +278,17 @@ def index():
         <label>Public Key:</label><textarea name="public_key">{{ config.public_key }}</textarea>
         <label>Datapage URL:</label><input type="text" name="datapage_url" value="{{ config.datapage_url }}">
         <label>Fetch/Send Interval (minutes):</label><input type="number" name="interval" value="{{ config.fetch_send_interval_minutes }}">
-        <label>Enable Logging:</label><input type="checkbox" name="logging" {% if config.logging_enabled %}checked{% endif %}>
         <label>Server Running:</label><input type="checkbox" name="running" {% if config.server_running %}checked{% endif %}>
         <h2>Sensors</h2>
         <table id="sensors">
-        <thead><tr><th>Sensor ID</th><th>Unit</th><th>Parameter Name</th><th>Action</th></tr></thead>
+        <thead><tr><th>Sensor ID</th><th>Unit</th><th>Parameter Name</th><th>Current Value</th><th>Action</th></tr></thead>
         <tbody>
         {% for sensor in config.sensors %}
         <tr>
             <td><input type="text" name="sensor_id[]" value="{{ sensor.sensor_id }}"></td>
             <td><input type="text" name="unit[]" value="{{ sensor.unit }}"></td>
             <td><input type="text" name="param_name[]" value="{{ sensor.param_name }}"></td>
+            <td><input type="text" readonly value="{{ sensor_values.get(sensor.sensor_id, '') }}"></td>
             <td><button type="button" class="remove-btn" onclick="removeRow(this)">Remove</button></td>
         </tr>
         {% endfor %}
@@ -264,7 +301,7 @@ def index():
     function addRow() {
         var table = document.getElementById('sensors').getElementsByTagName('tbody')[0];
         var row = table.insertRow();
-        row.innerHTML = '<td><input type="text" name="sensor_id[]"></td><td><input type="text" name="unit[]"></td><td><input type="text" name="param_name[]"></td><td><button type="button" class="remove-btn" onclick="removeRow(this)">Remove</button></td>';
+        row.innerHTML = '<td><input type="text" name="sensor_id[]"></td><td><input type="text" name="unit[]"></td><td><input type="text" name="param_name[]"></td><td><input type="text" readonly></td><td><button type="button" class="remove-btn" onclick="removeRow(this)">Remove</button></td>';
     }
     function removeRow(btn) {
         var row = btn.parentNode.parentNode;
@@ -274,7 +311,7 @@ def index():
     </body>
     </html>
     """
-    return render_template_string(template, config=config)
+    return render_template_string(template, config=config, sensor_values=sensor_values)
 
 if __name__ == '__main__':
     # Start logger thread

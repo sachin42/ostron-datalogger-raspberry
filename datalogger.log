@@ -1,0 +1,378 @@
+2025-12-26 21:34:32,618 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 21:34:32,618 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 21:35:15,324 - INFO - 127.0.0.1 - - [26/Dec/2025 21:35:15] "GET / HTTP/1.1" 200 -
+2025-12-26 21:35:15,940 - INFO - 127.0.0.1 - - [26/Dec/2025 21:35:15] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-12-26 21:37:32,233 - INFO - 127.0.0.1 - - [26/Dec/2025 21:37:32] "[32mPOST / HTTP/1.1[0m" 302 -
+2025-12-26 21:37:32,261 - INFO - 127.0.0.1 - - [26/Dec/2025 21:37:32] "GET / HTTP/1.1" 200 -
+2025-12-26 21:49:59,721 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 21:49:59,721 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 21:50:06,395 - INFO - 127.0.0.1 - - [26/Dec/2025 21:50:06] "GET / HTTP/1.1" 200 -
+2025-12-26 21:50:07,811 - INFO - 127.0.0.1 - - [26/Dec/2025 21:50:07] "[32mPOST / HTTP/1.1[0m" 302 -
+2025-12-26 21:50:07,828 - INFO - 127.0.0.1 - - [26/Dec/2025 21:50:07] "GET / HTTP/1.1" 200 -
+2025-12-26 21:51:40,127 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 21:51:40,127 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 21:51:46,205 - INFO - 127.0.0.1 - - [26/Dec/2025 21:51:46] "GET / HTTP/1.1" 200 -
+2025-12-26 21:52:41,292 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 21:52:41,292 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:00:17,166 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:00:17,166 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:00:20,146 - INFO - 127.0.0.1 - - [26/Dec/2025 22:00:20] "GET / HTTP/1.1" 200 -
+2025-12-26 22:01:58,423 - INFO - 127.0.0.1 - - [26/Dec/2025 22:01:58] "[32mPOST / HTTP/1.1[0m" 302 -
+2025-12-26 22:01:58,444 - INFO - 127.0.0.1 - - [26/Dec/2025 22:01:58] "GET / HTTP/1.1" 200 -
+2025-12-26 22:03:41,242 - INFO - 127.0.0.1 - - [26/Dec/2025 22:03:41] "GET / HTTP/1.1" 200 -
+2025-12-26 22:03:42,451 - INFO - 127.0.0.1 - - [26/Dec/2025 22:03:42] "GET / HTTP/1.1" 200 -
+2025-12-26 22:04:31,142 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:04:31,142 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:05:31,370 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:05:31,370 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:05:36,039 - ERROR - Error fetching data: 404 Client Error: File not found for url: http://localhost:8000/datapage.html%22
+2025-12-26 22:05:36,056 - INFO - 127.0.0.1 - - [26/Dec/2025 22:05:36] "GET / HTTP/1.1" 200 -
+2025-12-26 22:06:26,329 - INFO - 127.0.0.1 - - [26/Dec/2025 22:06:26] "[32mPOST / HTTP/1.1[0m" 302 -
+2025-12-26 22:06:26,378 - INFO - 127.0.0.1 - - [26/Dec/2025 22:06:26] "GET / HTTP/1.1" 200 -
+2025-12-26 22:06:32,340 - INFO - 127.0.0.1 - - [26/Dec/2025 22:06:32] "GET / HTTP/1.1" 200 -
+2025-12-26 22:06:35,409 - INFO - 127.0.0.1 - - [26/Dec/2025 22:06:35] "GET / HTTP/1.1" 200 -
+2025-12-26 22:07:03,219 - INFO - 127.0.0.1 - - [26/Dec/2025 22:07:03] "GET / HTTP/1.1" 200 -
+2025-12-26 22:07:04,826 - INFO - 127.0.0.1 - - [26/Dec/2025 22:07:04] "GET / HTTP/1.1" 200 -
+2025-12-26 22:08:08,769 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:08:08,769 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:08:11,520 - INFO - 127.0.0.1 - - [26/Dec/2025 22:08:11] "GET / HTTP/1.1" 200 -
+2025-12-26 22:08:12,893 - INFO - 127.0.0.1 - - [26/Dec/2025 22:08:12] "GET / HTTP/1.1" 200 -
+2025-12-26 22:08:13,762 - INFO - 127.0.0.1 - - [26/Dec/2025 22:08:13] "GET / HTTP/1.1" 200 -
+2025-12-26 22:08:40,185 - INFO - 127.0.0.1 - - [26/Dec/2025 22:08:40] "GET / HTTP/1.1" 200 -
+2025-12-26 22:08:41,204 - INFO - 127.0.0.1 - - [26/Dec/2025 22:08:41] "GET / HTTP/1.1" 200 -
+2025-12-26 22:08:42,043 - INFO - 127.0.0.1 - - [26/Dec/2025 22:08:42] "GET / HTTP/1.1" 200 -
+2025-12-26 22:09:14,504 - INFO - 127.0.0.1 - - [26/Dec/2025 22:09:14] "GET / HTTP/1.1" 200 -
+2025-12-26 22:09:15,441 - INFO - 127.0.0.1 - - [26/Dec/2025 22:09:15] "GET / HTTP/1.1" 200 -
+2025-12-26 22:09:16,430 - INFO - 127.0.0.1 - - [26/Dec/2025 22:09:16] "GET / HTTP/1.1" 200 -
+2025-12-26 22:09:17,231 - INFO - 127.0.0.1 - - [26/Dec/2025 22:09:17] "GET / HTTP/1.1" 200 -
+2025-12-26 22:09:18,118 - INFO - 127.0.0.1 - - [26/Dec/2025 22:09:18] "GET / HTTP/1.1" 200 -
+2025-12-26 22:09:38,498 - INFO - 127.0.0.1 - - [26/Dec/2025 22:09:38] "[32mPOST / HTTP/1.1[0m" 302 -
+2025-12-26 22:09:38,532 - INFO - 127.0.0.1 - - [26/Dec/2025 22:09:38] "GET / HTTP/1.1" 200 -
+2025-12-26 22:09:38,764 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:10:40,287 - INFO - 127.0.0.1 - - [26/Dec/2025 22:10:40] "[32mPOST / HTTP/1.1[0m" 302 -
+2025-12-26 22:10:40,326 - INFO - 127.0.0.1 - - [26/Dec/2025 22:10:40] "GET / HTTP/1.1" 200 -
+2025-12-26 22:10:48,194 - INFO - 127.0.0.1 - - [26/Dec/2025 22:10:48] "GET / HTTP/1.1" 200 -
+2025-12-26 22:10:50,164 - INFO - 127.0.0.1 - - [26/Dec/2025 22:10:50] "GET / HTTP/1.1" 200 -
+2025-12-26 22:11:01,348 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:11:01,364 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:11:01,364 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:11:01,390 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766766600000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:11:01,540 - INFO - Send status: 200 - {"msg":"success","status":1}
+2025-12-26 22:11:01,542 - INFO - Data sent.
+2025-12-26 22:11:09,479 - INFO - 127.0.0.1 - - [26/Dec/2025 22:11:09] "GET / HTTP/1.1" 200 -
+2025-12-26 22:11:19,228 - INFO - 127.0.0.1 - - [26/Dec/2025 22:11:19] "GET / HTTP/1.1" 200 -
+2025-12-26 22:14:00,301 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:14:00,333 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:14:00,333 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:14:00,343 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766766600000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:14:00,457 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:14:00,457 - INFO - Data sent.
+2025-12-26 22:14:06,537 - INFO - 127.0.0.1 - - [26/Dec/2025 22:14:06] "GET / HTTP/1.1" 200 -
+2025-12-26 22:14:07,761 - INFO - 127.0.0.1 - - [26/Dec/2025 22:14:07] "GET / HTTP/1.1" 200 -
+2025-12-26 22:14:08,363 - INFO - 127.0.0.1 - - [26/Dec/2025 22:14:08] "GET / HTTP/1.1" 200 -
+2025-12-26 22:14:09,100 - INFO - 127.0.0.1 - - [26/Dec/2025 22:14:09] "GET / HTTP/1.1" 200 -
+2025-12-26 22:14:09,936 - INFO - 127.0.0.1 - - [26/Dec/2025 22:14:09] "GET / HTTP/1.1" 200 -
+2025-12-26 22:14:10,706 - INFO - 127.0.0.1 - - [26/Dec/2025 22:14:10] "GET / HTTP/1.1" 200 -
+2025-12-26 22:14:10,970 - INFO - 127.0.0.1 - - [26/Dec/2025 22:14:10] "GET / HTTP/1.1" 200 -
+2025-12-26 22:14:11,189 - INFO - 127.0.0.1 - - [26/Dec/2025 22:14:11] "GET / HTTP/1.1" 200 -
+2025-12-26 22:15:00,483 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:15:00,483 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766767500000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:15:01,109 - INFO - Send status: 200 - {"msg":"success","status":1}
+2025-12-26 22:15:01,109 - INFO - Data sent.
+2025-12-26 22:15:12,607 - INFO - 127.0.0.1 - - [26/Dec/2025 22:15:12] "GET / HTTP/1.1" 200 -
+2025-12-26 22:15:33,425 - INFO - 127.0.0.1 - - [26/Dec/2025 22:15:33] "GET / HTTP/1.1" 200 -
+2025-12-26 22:15:43,389 - INFO - 127.0.0.1 - - [26/Dec/2025 22:15:43] "GET / HTTP/1.1" 200 -
+2025-12-26 22:18:07,586 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:18:07,597 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:18:07,597 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:18:07,613 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766767500000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:18:07,753 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:18:07,754 - INFO - Data sent.
+2025-12-26 22:18:23,674 - INFO - 127.0.0.1 - - [26/Dec/2025 22:18:23] "GET / HTTP/1.1" 200 -
+2025-12-26 22:18:26,365 - INFO - 127.0.0.1 - - [26/Dec/2025 22:18:26] "GET / HTTP/1.1" 200 -
+2025-12-26 22:18:33,550 - INFO - 127.0.0.1 - - [26/Dec/2025 22:18:33] "GET / HTTP/1.1" 200 -
+2025-12-26 22:18:47,532 - INFO - 127.0.0.1 - - [26/Dec/2025 22:18:47] "GET / HTTP/1.1" 200 -
+2025-12-26 22:19:07,770 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:19:07,785 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766767500000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:19:07,897 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:19:07,897 - INFO - Data sent.
+2025-12-26 22:20:07,928 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:20:07,928 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766767500000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:20:08,027 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:20:08,043 - INFO - Data sent.
+2025-12-26 22:21:08,073 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:21:08,073 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766767500000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:21:08,178 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:21:08,182 - INFO - Data sent.
+2025-12-26 22:22:08,217 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:22:08,219 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766767500000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:22:08,342 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:22:08,342 - INFO - Data sent.
+2025-12-26 22:22:16,139 - INFO - 127.0.0.1 - - [26/Dec/2025 22:22:16] "GET / HTTP/1.1" 200 -
+2025-12-26 22:22:22,999 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:22:23,024 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:22:23,025 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:22:23,047 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766767500000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:22:23,154 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:22:23,154 - INFO - Data sent.
+2025-12-26 22:22:27,593 - ERROR - Exception on / [GET]
+Traceback (most recent call last):
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 882, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\Desktop\New folder\datalogger_app.py", line 294, in index
+    return render_template_string(template, config=config, sensor_values=sensor_values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 162, in render_template_string
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 131, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "<template>", line 48, in top-level template code
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\utils.py", line 92, in from_obj
+    if hasattr(obj, "jinja_pass_arg"):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'float object' has no attribute 'get'
+2025-12-26 22:22:27,608 - INFO - 127.0.0.1 - - [26/Dec/2025 22:22:27] "[35m[1mGET / HTTP/1.1[0m" 500 -
+2025-12-26 22:22:29,475 - ERROR - Exception on / [GET]
+Traceback (most recent call last):
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 882, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\Desktop\New folder\datalogger_app.py", line 294, in index
+    return render_template_string(template, config=config, sensor_values=sensor_values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 162, in render_template_string
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 131, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "<template>", line 48, in top-level template code
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\utils.py", line 92, in from_obj
+    if hasattr(obj, "jinja_pass_arg"):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'float object' has no attribute 'get'
+2025-12-26 22:22:29,475 - INFO - 127.0.0.1 - - [26/Dec/2025 22:22:29] "[35m[1mGET / HTTP/1.1[0m" 500 -
+2025-12-26 22:23:23,172 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:23:23,188 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766767500000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:23:23,296 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:23:23,296 - INFO - Data sent.
+2025-12-26 22:24:07,146 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:24:07,169 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:24:07,169 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:24:07,189 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766767500000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:24:07,298 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:24:07,314 - INFO - Data sent.
+2025-12-26 22:24:10,222 - ERROR - Exception on / [GET]
+Traceback (most recent call last):
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 882, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\Desktop\New folder\datalogger_app.py", line 298, in index
+    return render_template_string(template, config=config, sensor_values=sensor_values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 162, in render_template_string
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 131, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "<template>", line 48, in top-level template code
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\utils.py", line 92, in from_obj
+    if hasattr(obj, "jinja_pass_arg"):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'float object' has no attribute 'get'
+2025-12-26 22:24:10,222 - INFO - 127.0.0.1 - - [26/Dec/2025 22:24:10] "[35m[1mGET / HTTP/1.1[0m" 500 -
+2025-12-26 22:24:11,360 - ERROR - Exception on / [GET]
+Traceback (most recent call last):
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 882, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\Desktop\New folder\datalogger_app.py", line 298, in index
+    return render_template_string(template, config=config, sensor_values=sensor_values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 162, in render_template_string
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 131, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "<template>", line 48, in top-level template code
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\utils.py", line 92, in from_obj
+    if hasattr(obj, "jinja_pass_arg"):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'float object' has no attribute 'get'
+2025-12-26 22:24:11,360 - INFO - 127.0.0.1 - - [26/Dec/2025 22:24:11] "[35m[1mGET / HTTP/1.1[0m" 500 -
+2025-12-26 22:24:12,028 - ERROR - Exception on / [GET]
+Traceback (most recent call last):
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 882, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\Desktop\New folder\datalogger_app.py", line 298, in index
+    return render_template_string(template, config=config, sensor_values=sensor_values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 162, in render_template_string
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\flask\templating.py", line 131, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "<template>", line 48, in top-level template code
+  File "C:\Users\Sachin\AppData\Local\Programs\Python\Python312\Lib\site-packages\jinja2\utils.py", line 92, in from_obj
+    if hasattr(obj, "jinja_pass_arg"):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'float object' has no attribute 'get'
+2025-12-26 22:24:12,030 - INFO - 127.0.0.1 - - [26/Dec/2025 22:24:12] "[35m[1mGET / HTTP/1.1[0m" 500 -
+2025-12-26 22:39:42,664 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:39:42,664 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:39:50,017 - INFO - 127.0.0.1 - - [26/Dec/2025 22:39:50] "GET / HTTP/1.1" 200 -
+2025-12-26 22:40:13,062 - INFO - 127.0.0.1 - - [26/Dec/2025 22:40:13] "GET / HTTP/1.1" 200 -
+2025-12-26 22:40:14,010 - INFO - 127.0.0.1 - - [26/Dec/2025 22:40:14] "GET / HTTP/1.1" 200 -
+2025-12-26 22:43:48,795 - INFO - 127.0.0.1 - - [26/Dec/2025 22:43:48] "GET / HTTP/1.1" 200 -
+2025-12-26 22:43:50,296 - INFO - 127.0.0.1 - - [26/Dec/2025 22:43:50] "GET / HTTP/1.1" 200 -
+2025-12-26 22:44:24,548 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:44:24,583 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:44:24,583 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:44:24,593 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766768400000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:44:24,723 - INFO - Send status: 200 - {"msg":"success","status":1}
+2025-12-26 22:44:24,723 - INFO - Data sent.
+2025-12-26 22:44:29,886 - INFO - 127.0.0.1 - - [26/Dec/2025 22:44:29] "GET / HTTP/1.1" 200 -
+2025-12-26 22:44:31,776 - INFO - 127.0.0.1 - - [26/Dec/2025 22:44:31] "GET / HTTP/1.1" 200 -
+2025-12-26 22:44:32,763 - INFO - 127.0.0.1 - - [26/Dec/2025 22:44:32] "GET / HTTP/1.1" 200 -
+2025-12-26 22:45:24,763 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:45:24,765 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766769300000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:45:38,281 - INFO - Send status: 200 - {"msg":"success","status":1}
+2025-12-26 22:45:38,282 - INFO - Data sent.
+2025-12-26 22:46:28,295 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:46:28,295 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766769300000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:46:28,402 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:46:28,402 - INFO - Data sent.
+2025-12-26 22:49:24,093 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 22:49:24,109 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:9999
+ * Running on http://192.168.1.232:9999
+2025-12-26 22:49:24,109 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-26 22:49:24,124 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766769300000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 22:49:24,223 - INFO - Send status: 200 - {"msg":"Uploaded data is not matching with defined 15 min timeframe","status":111}
+2025-12-26 22:49:24,223 - INFO - Data sent.
+2025-12-26 22:49:30,424 - INFO - 127.0.0.1 - - [26/Dec/2025 22:49:30] "GET / HTTP/1.1" 200 -
+2025-12-26 22:49:45,642 - INFO - 127.0.0.1 - - [26/Dec/2025 22:49:45] "[32mPOST / HTTP/1.1[0m" 302 -
+2025-12-26 22:49:45,679 - INFO - 127.0.0.1 - - [26/Dec/2025 22:49:45] "GET / HTTP/1.1" 200 -
+2025-12-26 23:04:24,540 - INFO - Fetched sensors: {'ph': {'value': 8.2, 'unit': 'pH'}}
+2025-12-26 23:04:24,540 - INFO - Plain JSON: {"data":[{"stationId":"station_8203","device_data":[{"deviceId":"device_7025","params":[{"parameter":"ph","value":8.2,"unit":"pH","timestamp":1766770200000,"flag":"U"}]}],"latitude":28.6129,"longitude":77.2295}]}
+2025-12-26 23:04:24,670 - INFO - Send status: 200 - {"msg":"success","status":1}
+2025-12-26 23:04:24,670 - INFO - Data sent.
+2025-12-26 23:04:32,113 - INFO - 127.0.0.1 - - [26/Dec/2025 23:04:32] "GET / HTTP/1.1" 200 -

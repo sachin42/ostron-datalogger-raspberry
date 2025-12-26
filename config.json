@@ -9,24 +9,11 @@
       "sensor_id": "S01",
       "unit": "pH",
       "param_name": "ph"
-    },
-    {
-      "sensor_id": "S03",
-      "unit": "mg/L",
-      "param_name": "cod"
-    },
-    {
-      "sensor_id": "S06",
-      "unit": "mg/L",
-      "param_name": "tss"
-    },
-    {
-      "sensor_id": "S07",
-      "unit": "mg/L",
-      "param_name": "bod"
     }
   ],
   "fetch_send_interval_minutes": 15,
   "logging_enabled": true,
-  "server_running": true
+  "server_running": true,
+  "last_fetch_success": "2025-12-26T23:04:24.540696+05:30",
+  "last_send_success": "2025-12-26T23:04:24.670673+05:30"
 }
