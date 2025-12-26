@@ -16,10 +16,14 @@ cp datalogger.service "$SERVICE_FILE"
 
 echo "Installing wrapper script..."
 cp datalogger-wrapper.sh "$WRAPPER_SCRIPT"
+
+echo "Fixing line endings and setting permissions..."
+sed -i 's/\r$//' "$WRAPPER_SCRIPT"
 chmod +x "$WRAPPER_SCRIPT"
+chown logger:logger "$WRAPPER_SCRIPT"
 
 echo "Setting ownership to logger user..."
-chown logger:logger "$SERVICE_FILE" "$WRAPPER_SCRIPT"
+chown logger:logger "$SERVICE_FILE"
 
 echo "Reloading systemd daemon..."
 systemctl daemon-reload
