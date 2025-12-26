@@ -116,6 +116,7 @@ def load_config() -> dict:
         return get_default_config()
 
 def get_default_config() -> dict:
+    """Get default configuration"""
     return {
         "token_id": "",
         "device_id": "",
@@ -129,7 +130,9 @@ def get_default_config() -> dict:
         "last_send_success": "",
         "total_sends": 0,
         "failed_sends": 0,
-        "last_error": ""
+        "last_error": "",
+        "error_endpoint_url": "http://65.1.87.62/ocms/Cpcb/add_cpcberror",
+        "error_session_cookie": "e1j7mnclaennlc5vqfr8ms2iiv1ng2i7"
     }
 
 def save_config(config: dict):
@@ -197,8 +200,53 @@ def get_signature_timestamp() -> str:
     """Get formatted timestamp for signature"""
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
+def send_error_to_endpoint(tag: str, error_msg: str, config: dict, 
+                           response_data: dict = None) -> bool:
+    """Send error to HTTP endpoint with context"""
+    try:
+        endpoint = config.get('error_endpoint_url', 
+                             'http://65.1.87.62/ocms/Cpcb/add_cpcberror')
+        cookie = config.get('error_session_cookie', '')
+        
+        context = {
+            'tag': tag,
+            'error_message': error_msg,
+            'device_id': config.get('device_id', ''),
+            'station_id': config.get('station_id', ''),
+            'last_fetch_success': config.get('last_fetch_success', 'Never'),
+            'last_send_success': config.get('last_send_success', 'Never'),
+            'total_sends': config.get('total_sends', 0),
+            'failed_sends': config.get('failed_sends', 0),
+            'timestamp': datetime.now(IST).isoformat()
+        }
+        
+        if response_data:
+            context['response_data'] = response_data
+        
+        error_message = f"{tag} - {error_msg}"
+        
+        headers = {
+            'Cookie': f'ci_session={cookie}'
+        }
+        
+        data = {
+            'error': error_message
+        }
+        
+        logger.error(f"Sending error to endpoint: {error_message}")
+        logger.error(f"Context: {context}")
+        
+        response = requests.post(endpoint, headers=headers, data=data, timeout=10)
+        logger.info(f"Error endpoint response: {response.status_code} - {response.text}")
+        
+        return response.status_code == 200
+        
+    except Exception as e:
+        logger.error(f"Failed to send error to endpoint: {e}")
+        return False
+
 def build_plain_payload(sensors: dict, device_id: str, station_id: str, 
-                       lat: float = 28.6129, lon: float = 77.2295) -> str:
+                        lat: float = 28.6129, lon: float = 77.2295) -> str:
     """Build plain JSON payload"""
     params = []
     ts = get_aligned_timestamp_ms()
@@ -243,15 +291,17 @@ def generate_signature(token_id: str, public_key_pem: str) -> str:
     return base64.b64encode(encrypted).decode()
 
 def send_to_server(sensors: dict, device_id: str, station_id: str, 
-                  token_id: str, public_key_pem: str, 
-                  endpoint: str = "https://cems.cpcb.gov.in/v1.0/industry/data",
-                  max_retries: int = 3) -> Tuple[bool, int, str]:
+                   token_id: str, public_key_pem: str, config: dict,
+                   endpoint: str = "https://cems.cpcb.gov.in/v1.0/industry/data",
+                   max_retries: int = 3) -> Tuple[bool, int, str]:
     """Send data to server with retry logic"""
     if not sensors:
         logger.info("No sensor data to send")
         return False, 0, "No data"
     
     plain_json = build_plain_payload(sensors, device_id, station_id)
+    last_response = None
+    last_status_code = 0
     
     for attempt in range(max_retries):
         try:
@@ -270,6 +320,9 @@ def send_to_server(sensors: dict, device_id: str, station_id: str,
                                    headers=headers, timeout=20)
             logger.info(f"Send status: {response.status_code} - {response.text}")
             
+            last_response = response.text
+            last_status_code = response.status_code
+            
             success = False
             if response.status_code == 200:
                 try:
@@ -283,6 +336,9 @@ def send_to_server(sensors: dict, device_id: str, station_id: str,
             
             # Don't retry on client errors (4xx)
             if 400 <= response.status_code < 500:
+                error_msg = response.text
+                send_error_to_endpoint("SERVER_ERROR", error_msg, config, 
+                                       {'response': response.text, 'status_code': response.status_code})
                 return False, response.status_code, response.text
             
             # Exponential backoff for retries
@@ -294,9 +350,18 @@ def send_to_server(sensors: dict, device_id: str, station_id: str,
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)
     
-    return False, 0, "Max retries exceeded"
+    # All retries failed, send error report
+    if last_response:
+        error_msg = last_response
+        send_error_to_endpoint("SERVER_ERROR", error_msg, config, 
+                               {'response': last_response, 'status_code': last_status_code})
+    else:
+        error_msg = "Max retries exceeded - No response from server"
+        send_error_to_endpoint("SERVER_ERROR", error_msg, config)
+    
+    return False, last_status_code, last_response if last_response else "Max retries exceeded"
 
-def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
+def fetch_sensor_data(datapage_url: str, config_sensors: dict, config: dict) -> dict:
     """Fetch sensor data from webpage"""
     try:
         if datapage_url.startswith('file://'):
@@ -330,8 +395,18 @@ def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
                             logger.warning(f"Invalid value for sensor {sid}")
         
         return sensors
+    except requests.RequestException as e:
+        error_msg = f"Network error: {str(e)}"
+        if hasattr(e, 'response') and e.response is not None:
+            error_msg = f"HTTP {e.response.status_code}: {str(e)}"
+        logger.error(f"Error fetching data: {error_msg}")
+        send_error_to_endpoint("FETCH_ERROR", error_msg, config, 
+                               {'http_status': e.response.status_code if hasattr(e, 'response') and e.response else None})
+        return {}
     except Exception as e:
-        logger.error(f"Error fetching data: {e}")
+        error_msg = f"Parsing error: {str(e)}"
+        logger.error(f"Error fetching data: {error_msg}")
+        send_error_to_endpoint("FETCH_ERROR", error_msg, config)
         return {}
 
 def retry_failed_transmissions(config: dict) -> int:
@@ -350,6 +425,7 @@ def retry_failed_transmissions(config: dict) -> int:
             config.get('station_id', ''),
             config.get('token_id', ''),
             config.get('public_key', ''),
+            config,
             max_retries=1
         )
         
@@ -386,7 +462,7 @@ def logger_thread():
                 
                 # Fetch new data
                 config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
-                sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors)
+                sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors, config)
                 
                 if sensors:
                     # Update fetch success if we got all sensors
@@ -401,7 +477,8 @@ def logger_thread():
                         config.get('device_id', ''),
                         config.get('station_id', ''),
                         config.get('token_id', ''),
-                        config.get('public_key', '')
+                        config.get('public_key', ''),
+                        config
                     )
                     
                     config['total_sends'] = config.get('total_sends', 0) + 1
@@ -457,7 +534,7 @@ def test_fetch():
     """Manual test of data fetching"""
     config = load_config()
     config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
-    sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors)
+    sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors, config)
     
     return jsonify({
         "success": len(sensors) > 0,
@@ -472,7 +549,7 @@ def test_send():
     """Manual test of data sending"""
     config = load_config()
     config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
-    sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors)
+    sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors, config)
     
     if not sensors:
         return jsonify({"success": False, "error": "No sensor data fetched"})
@@ -482,7 +559,8 @@ def test_send():
         config.get('device_id', ''),
         config.get('station_id', ''),
         config.get('token_id', ''),
-        config.get('public_key', '')
+        config.get('public_key', ''),
+        config
     )
     
     return jsonify({
@@ -504,6 +582,8 @@ def index():
         config['datapage_url'] = request.form['datapage_url']
         config['fetch_send_interval_minutes'] = int(request.form['interval'])
         config['server_running'] = 'running' in request.form
+        config['error_endpoint_url'] = request.form.get('error_endpoint_url', '')
+        config['error_session_cookie'] = request.form.get('error_session_cookie', '')
         
         sensors = []
         for i in range(len(request.form.getlist('sensor_id[]'))):
@@ -523,7 +603,7 @@ def index():
     
     try:
         config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
-        raw_sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors)
+        raw_sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors, config)
         for sid, s in config_sensors.items():
             param = s['param_name']
             if param in raw_sensors:
@@ -633,6 +713,10 @@ def index():
         <label>Datapage URL:</label><input type="text" name="datapage_url" value="{{ config.datapage_url }}" required>
         <label>Fetch/Send Interval (minutes):</label><input type="number" name="interval" value="{{ config.fetch_send_interval_minutes }}" min="1" required>
         <label>Server Running:</label><input type="checkbox" name="running" {% if config.server_running %}checked{% endif %}>
+        
+        <h2>Error Reporting</h2>
+        <label>Error Endpoint URL:</label><input type="text" name="error_endpoint_url" value="{{ config.get('error_endpoint_url', '') }}">
+        <label>Error Session Cookie:</label><input type="text" name="error_session_cookie" value="{{ config.get('error_session_cookie', '') }}">
         
         <h2>Sensors</h2>
         <table id="sensors">
