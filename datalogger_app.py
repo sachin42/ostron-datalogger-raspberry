@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, jsonify
+from flask import Flask, request, render_template_string, redirect, jsonify, send_from_directory
 from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
@@ -508,6 +508,10 @@ def logger_thread():
         except Exception as e:
             logger.error(f"Error in logger thread: {e}")
             time.sleep(10)
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/health')
 def health():
