@@ -6,3 +6,4 @@ config.lock
 failed_queue.json
 ODAMS_API_Document.pdf
 AGENTS.md
+__pycache__/
