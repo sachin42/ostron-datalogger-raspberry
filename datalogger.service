@@ -1,0 +1,19 @@
+[Unit]
+Description=DataLogger Flask Application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=logger
+Group=logger
+WorkingDirectory=/home/logger/datalogger
+ExecStart=/home/logger/datalogger/datalogger-wrapper.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=datalogger
+
+[Install]
+WantedBy=multi-user.target
