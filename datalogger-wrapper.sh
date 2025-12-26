@@ -14,8 +14,8 @@ check_eth0_ip() {
     return $?
 }
 
-check_eth2_internet() {
-    if ping -c 1 -W 3 8.8.8.8 -I eth2 &>/dev/null; then
+check_eth1_internet() {
+    if ping -c 1 -W 3 8.8.8.8 -I eth1 &>/dev/null; then
         return 0
     else
         return 1
@@ -33,11 +33,11 @@ wait_for_network() {
             ETH0_IP=$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
             log "eth0 has IP: $ETH0_IP"
             
-            if check_eth2_internet; then
-                log "eth2 has internet connectivity"
+            if check_eth1_internet; then
+                log "eth1 has internet connectivity"
                 return 0
             else
-                log "eth0 ready but eth2 no internet (attempt $((attempt+1))/$max_attempts)"
+                log "eth0 ready but eth1 no internet (attempt $((attempt+1))/$max_attempts)"
             fi
         else
             log "Waiting for eth0 IP (attempt $((attempt+1))/$max_attempts)"
