@@ -220,7 +220,7 @@ def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
         public_ip = get_public_ip()
         
         context = {
-            'tag': tag + str(id),
+            'tag':  f"{tag} - UID:{id}",
             'error_message': error_msg,
             'device_id': config.get('device_id', ''),
             'station_id': config.get('station_id', ''),
@@ -235,7 +235,7 @@ def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
         if response_data:
             context['response_data'] = response_data
         
-        error_message = f"{tag} - IP:{public_ip} - {error_msg}"
+        error_message = f"{tag} - UID:{id} - IP:{public_ip} - {error_msg}"
         
         headers = {
             'Cookie': f'ci_session={cookie}'
