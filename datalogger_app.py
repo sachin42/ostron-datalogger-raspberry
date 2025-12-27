@@ -125,6 +125,7 @@ def get_default_config() -> dict:
         "datapage_url": "",
         "sensors": [],
         "fetch_send_interval_minutes": 15,
+        "calibration_mode": False,
         "server_running": False,
         "last_fetch_success": "",
         "last_send_success": "",
@@ -199,6 +200,26 @@ def get_aligned_timestamp_ms() -> int:
 def get_signature_timestamp() -> str:
     """Get formatted timestamp for signature"""
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+def validate_timestamp(ts_ms: int) -> bool:
+    """Validate timestamp according to server rules"""
+    now = datetime.now(IST)
+    now_ms = int(now.timestamp() * 1000)
+
+    # Backdate limit: older than 7 days not accepted
+    if now_ms - ts_ms > 7 * 24 * 60 * 60 * 1000:
+        return False
+
+    # Future date not allowed
+    if ts_ms > now_ms:
+        return False
+
+    # Check alignment to 15 min (or 30 sec in calibration, but since payload is aligned to 15 min, ok)
+    dt = datetime.fromtimestamp(ts_ms / 1000, IST)
+    if dt.minute % 15 != 0 or dt.second != 0 or dt.microsecond != 0:
+        return False
+
+    return True
 
 def get_public_ip() -> str:
     """Get public IP address"""
@@ -426,27 +447,56 @@ def retry_failed_transmissions(config: dict) -> int:
     queue = load_queue()
     if not queue:
         return 0
-    
+
     successful = 0
     remaining = []
-    
+    endpoint = "https://cems.cpcb.gov.in/v1.0/industry/data"
+    token_id = config.get('token_id', '')
+    public_key_pem = config.get('public_key', '')
+    device_id = config.get('device_id', '')
+
     for item in queue:
-        success, status, text = send_to_server(
-            item['sensors'],
-            config.get('device_id', ''),
-            config.get('station_id', ''),
-            config.get('token_id', ''),
-            config.get('public_key', ''),
-            config,
-            max_retries=1
-        )
-        
-        if success:
-            successful += 1
-            logger.info(f"Successfully sent queued data from {item['timestamp']}")
-        else:
+        # Check if data is too old (backdate limit 7 days)
+        current_ts = int(time.time() * 1000)
+        if 'aligned_ts' in item and (current_ts - item['aligned_ts']) > 7 * 24 * 60 * 60 * 1000:
+            logger.info(f"Skipping old queued data from {item['timestamp']}")
+            continue
+
+        try:
+            # Regenerate signature with current time
+            signature = generate_signature(token_id, public_key_pem)
+
+            headers = {
+                "Content-Type": "text/plain",
+                "X-Device-Id": device_id,
+                "signature": signature
+            }
+
+            response = requests.post(endpoint, data=item['encrypted_payload'],
+                                   headers=headers, timeout=20)
+            logger.info(f"Retry send status: {response.status_code} - {response.text}")
+
+            success = False
+            if response.status_code == 200:
+                try:
+                    data = json.loads(response.text.strip())
+                    success = data.get('msg') == 'success' and data.get('status') == 1
+                except json.JSONDecodeError:
+                    pass
+
+            if success:
+                successful += 1
+                logger.info(f"Successfully sent queued data from {item['timestamp']}")
+            else:
+                remaining.append(item)
+                if 400 <= response.status_code < 500:
+                    send_error_to_endpoint("SERVER_ERROR", response.text, config,
+                                           {'response': response.text, 'status_code': response.status_code})
+
+        except Exception as e:
+            logger.error(f"Retry failed: {e}")
             remaining.append(item)
-    
+
     # Keep only last 100 failed items to prevent unbounded growth
     save_queue(remaining[-100:])
     return successful
@@ -463,9 +513,12 @@ def logger_thread():
                 time.sleep(5)
                 continue
             
-            interval = config.get('fetch_send_interval_minutes', 15) * 60
+            if config.get('calibration_mode', False):
+                interval = 30  # 30 seconds
+            else:
+                interval = config.get('fetch_send_interval_minutes', 15) * 60
             current = time.time()
-            
+
             if current - last_send >= interval:
                 # Retry failed transmissions first
                 retry_count = retry_failed_transmissions(config)
@@ -492,9 +545,9 @@ def logger_thread():
                         config.get('public_key', ''),
                         config
                     )
-                    
+
                     config['total_sends'] = config.get('total_sends', 0) + 1
-                    
+
                     if success:
                         config['last_send_success'] = datetime.now(IST).isoformat()
                         config['last_error'] = ""
@@ -502,12 +555,16 @@ def logger_thread():
                     else:
                         config['failed_sends'] = config.get('failed_sends', 0) + 1
                         config['last_error'] = f"Status {status}: {text}"
-                        
-                        # Queue for retry
+
+                        # Queue encrypted payload for retry
+                        plain_json = build_plain_payload(sensors, config.get('device_id', ''), config.get('station_id', ''))
+                        encrypted_payload = encrypt_payload(plain_json, config.get('token_id', ''))
+                        aligned_ts = get_aligned_timestamp_ms()
                         queue = load_queue()
                         queue.append({
-                            'sensors': sensors,
-                            'timestamp': datetime.now(IST).isoformat()
+                            'encrypted_payload': encrypted_payload,
+                            'timestamp': datetime.now(IST).isoformat(),
+                            'aligned_ts': aligned_ts
                         })
                         save_queue(queue[-100:])  # Keep last 100
                         logger.error(f"Failed to send data: {text}")
@@ -597,6 +654,7 @@ def index():
         config['public_key'] = request.form['public_key']
         config['datapage_url'] = request.form['datapage_url']
         config['fetch_send_interval_minutes'] = int(request.form['interval'])
+        config['calibration_mode'] = 'calibration' in request.form
         config['server_running'] = 'running' in request.form
         config['error_endpoint_url'] = request.form.get('error_endpoint_url', '')
         config['error_session_cookie'] = request.form.get('error_session_cookie', '')
@@ -728,6 +786,7 @@ def index():
         <label>Public Key:</label><textarea name="public_key" required>{{ config.public_key }}</textarea>
         <label>Datapage URL:</label><input type="text" name="datapage_url" value="{{ config.datapage_url }}" required>
         <label>Fetch/Send Interval (minutes):</label><input type="number" name="interval" value="{{ config.fetch_send_interval_minutes }}" min="1" required>
+        <label>Calibration Mode (30 sec intervals):</label><input type="checkbox" name="calibration" {% if config.get('calibration_mode') %}checked{% endif %}>
         <label>Server Running:</label><input type="checkbox" name="running" {% if config.server_running %}checked{% endif %}>
         
         <h2>Error Reporting</h2>
