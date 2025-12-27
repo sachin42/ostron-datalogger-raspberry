@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from typing import Dict, List, Tuple, Optional
 import shutil
 import platform
+import math
 
 # Cross-platform file locking
 try:
@@ -123,6 +124,7 @@ def get_default_config() -> dict:
         "station_id": "",
         "public_key": "",
         "datapage_url": "",
+        "endpoint": "https://cems.cpcb.gov.in/v1.0/industry/data",
         "sensors": [],
         "calibration_mode": False,
         "server_running": False,
@@ -278,10 +280,13 @@ def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
         return False
 
 def build_plain_payload(sensors: dict, device_id: str, station_id: str,
-                        lat: float = 28.6129, lon: float = 77.2295, flag: str = "U") -> str:
+                        lat: float = 28.6129, lon: float = 77.2295, flag: str = "U", align: bool = True) -> str:
     """Build plain JSON payload"""
     params = []
-    ts = get_aligned_timestamp_ms()
+    if align:
+        ts = get_aligned_timestamp_ms()
+    else:
+        ts = int(datetime.now(IST).timestamp() * 1000)
     for param, data in sensors.items():
         params.append({
             "parameter": param,
@@ -324,14 +329,16 @@ def generate_signature(token_id: str, public_key_pem: str) -> str:
 
 def send_to_server(sensors: dict, device_id: str, station_id: str,
                    token_id: str, public_key_pem: str, config: dict,
-                   endpoint: str = "https://cems.cpcb.gov.in/v1.0/industry/data",
-                   max_retries: int = 3, flag: str = "U") -> Tuple[bool, int, str]:
+                   endpoint: str = None,
+                   max_retries: int = 3, flag: str = "U", align: bool = True) -> Tuple[bool, int, str]:
     """Send data to server with retry logic"""
+    if not endpoint:
+        endpoint = config.get('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
     if not sensors:
         logger.info("No sensor data to send")
         return False, 0, "No data"
     
-    plain_json = build_plain_payload(sensors, device_id, station_id, flag=flag)
+    plain_json = build_plain_payload(sensors, device_id, station_id, flag=flag, align=align)
     last_response = None
     last_status_code = 0
     
@@ -449,7 +456,7 @@ def retry_failed_transmissions(config: dict) -> int:
 
     successful = 0
     remaining = []
-    endpoint = "https://cems.cpcb.gov.in/v1.0/industry/data"
+    endpoint = config.get('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
     token_id = config.get('token_id', '')
     public_key_pem = config.get('public_key', '')
     device_id = config.get('device_id', '')
@@ -500,22 +507,45 @@ def retry_failed_transmissions(config: dict) -> int:
 def logger_thread():
     """Background thread for data logging"""
     last_send = 0
-    
+    config = load_config()  # Load once for alignment calc
+    alignment_minutes = 1 if config.get('calibration_mode', False) else 15
+    interval_seconds = alignment_minutes * 60
+    now = datetime.now(IST)
+    # Calculate next aligned time
+    current_ts = now.timestamp()
+    aligned_ts = math.ceil(current_ts / interval_seconds) * interval_seconds
+    next_send_time = aligned_ts
+
     while True:
         try:
             config = load_config()
-            
+
             if not config.get('server_running', False):
                 time.sleep(5)
                 continue
-            
-            if config.get('calibration_mode', False):
-                interval = 60  # 1 minute
-            else:
-                interval = 15 * 60  # Fixed 15 minutes
+
             current = time.time()
 
-            if current - last_send >= interval:
+            should_send = False
+            if last_send == 0:
+                # First send: wait for next aligned time
+                if current >= next_send_time:
+                    should_send = True
+                    last_send = next_send_time
+                else:
+                    sleep_time = min(5, next_send_time - current)
+                    time.sleep(sleep_time)
+                    continue
+            else:
+                # Subsequent sends: check interval
+                if current - last_send >= interval_seconds:
+                    should_send = True
+                    last_send += interval_seconds
+                else:
+                    time.sleep(5)
+                    continue
+
+            if should_send:
                 # Fetch new data
                 config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
                 sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors, config)
@@ -529,6 +559,7 @@ def logger_thread():
 
                     # Send data
                     flag = "C" if config.get('calibration_mode', False) else "U"
+                    align = not config.get('calibration_mode', False)
                     success, status, text = send_to_server(
                         sensors,
                         config.get('device_id', ''),
@@ -536,7 +567,8 @@ def logger_thread():
                         config.get('token_id', ''),
                         config.get('public_key', ''),
                         config,
-                        flag=flag
+                        flag=flag,
+                        align=align
                     )
 
                     config['total_sends'] = config.get('total_sends', 0) + 1
@@ -570,7 +602,6 @@ def logger_thread():
                         logger.error(f"Failed to send data: {text}")
                 
                 save_config(config)
-                last_send = current
 
             time.sleep(5)
             
@@ -628,6 +659,7 @@ def test_send():
         return jsonify({"success": False, "error": "No sensor data fetched"})
     
     flag = "C" if config.get('calibration_mode', False) else "U"
+    align = not config.get('calibration_mode', False)
     success, status, text = send_to_server(
         sensors,
         config.get('device_id', ''),
@@ -635,7 +667,8 @@ def test_send():
         config.get('token_id', ''),
         config.get('public_key', ''),
         config,
-        flag=flag
+        flag=flag,
+        align=align
     )
     
     return jsonify({
@@ -655,6 +688,7 @@ def index():
         config['station_id'] = request.form['station_id']
         config['public_key'] = request.form['public_key']
         config['datapage_url'] = request.form['datapage_url']
+        config['endpoint'] = request.form.get('endpoint', '')
         config['calibration_mode'] = 'calibration' in request.form
         config['server_running'] = 'running' in request.form
         config['error_endpoint_url'] = request.form.get('error_endpoint_url', '')
@@ -786,6 +820,7 @@ def index():
         <label>Station ID:</label><input type="text" name="station_id" value="{{ config.station_id }}" required>
         <label>Public Key:</label><textarea name="public_key" required>{{ config.public_key }}</textarea>
         <label>Datapage URL:</label><input type="text" name="datapage_url" value="{{ config.datapage_url }}" required>
+        <label>Endpoint URL:</label><input type="text" name="endpoint" value="{{ config.get('endpoint', '') }}" placeholder="https://cems.cpcb.gov.in/v1.0/industry/data">
 
         <label>Calibration Mode (30 sec intervals):</label><input type="checkbox" name="calibration" {% if config.get('calibration_mode') %}checked{% endif %}>
         <label>Server Running:</label><input type="checkbox" name="running" {% if config.server_running %}checked{% endif %}>
@@ -865,4 +900,4 @@ if __name__ == '__main__':
     logger.info("Datalogger application started")
     
     # Run web app
-    app.run(host='0.0.0.0', port=9999, debug=False)
+    app.run(host='0.0.0.0', port=9999, debug=True)
