@@ -200,6 +200,15 @@ def get_signature_timestamp() -> str:
     """Get formatted timestamp for signature"""
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
+def get_public_ip() -> str:
+    """Get public IP address"""
+    try:
+        response = requests.get('https://api.ipify.org?format=text', timeout=5)
+        return response.text.strip()
+    except Exception as e:
+        logger.warning(f"Failed to get public IP: {e}")
+        return "Unknown"
+
 def send_error_to_endpoint(tag: str, error_msg: str, config: dict, 
                            response_data: dict = None) -> bool:
     """Send error to HTTP endpoint with context"""
@@ -208,11 +217,14 @@ def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
                              'http://65.1.87.62/ocms/Cpcb/add_cpcberror')
         cookie = config.get('error_session_cookie', '')
         id = 861192078519884
+        public_ip = get_public_ip()
+        
         context = {
             'tag': tag + str(id),
             'error_message': error_msg,
             'device_id': config.get('device_id', ''),
             'station_id': config.get('station_id', ''),
+            'public_ip': public_ip,
             'last_fetch_success': config.get('last_fetch_success', 'Never'),
             'last_send_success': config.get('last_send_success', 'Never'),
             'total_sends': config.get('total_sends', 0),
@@ -223,7 +235,7 @@ def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
         if response_data:
             context['response_data'] = response_data
         
-        error_message = f"{tag} - {error_msg}"
+        error_message = f"{tag} - IP:{public_ip} - {error_msg}"
         
         headers = {
             'Cookie': f'ci_session={cookie}'
