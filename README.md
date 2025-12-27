@@ -23,7 +23,7 @@ A robust, modular Flask-based application for collecting sensor data from HTML s
 - 🔐 **Secure Encryption**: AES-256 encryption for payloads, RSA signatures for integrity.
 - 🌐 **Web Interface**: Intuitive admin panel for configuration and monitoring.
 - 🔄 **Reliable Transmission**: 3-attempt retries with exponential backoff; queues failed sends.
-- ⏰ **Scheduled Logging**: 15-minute intervals (or 1-min calibration mode) for compliance. Calibration mode skips queuing failed sends.
+- ⏰ **Scheduled Logging**: 15-minute intervals (or 1-min calibration mode) for compliance. Calibration mode uses real-time timestamps and skips queuing failed sends.
 - 📊 **Health Monitoring**: Real-time status via `/health` endpoint.
 - 🛠️ **Raspberry Pi Optimized**: Cross-platform file locking, systemd service support.
 - 📈 **Error Reporting**: Automated alerts to remote endpoints with context.
@@ -89,7 +89,7 @@ docker run -p 9999:9999 datalogger
 2. 🌐 Open http://localhost:9999 in browser.
 3. 🔑 Login with `admin`/`admin123` (change immediately!).
 4. ⚙️ Configure sensors, URLs, and credentials.
-5. ✅ Test fetch/send via UI buttons.
+5. ✅ Test fetch/send via UI buttons (use `python test_server.py` for local testing).
 6. 🔄 Monitor status dashboard.
 
 ## ⚙️ Configuration
@@ -106,7 +106,7 @@ Edit `config.json`:
   "server_running": true
 }
 ```
-- 📝 **Fields**: `token_id` (encryption key), `datapage_url` (HTML source), sensors array, `calibration_mode` (enables 1-min intervals and 'C' flag).
+- 📝 **Fields**: `token_id` (encryption key), `datapage_url` (HTML source), `endpoint` (server URL), sensors array, `calibration_mode` (enables 1-min intervals and 'C' flag).
 - 🔄 Reload config via web UI or restart app.
 
 ## 📖 Usage
@@ -117,9 +117,12 @@ Edit `config.json`:
 
 ### Example Workflow
 1. 📡 Fetch data from HTML page.
-2. 🔒 Encrypt payload with AES + sign with RSA (flag: 'U' normal, 'C' calibration).
+2. 🔒 Encrypt payload with AES + sign with RSA (flag: 'U' normal, 'C' calibration; timestamps: aligned in normal, real-time in calibration).
 3. 📤 Send to ODAMS server.
 4. ❌ On failure: Queue for retry on next success (not in calibration mode).
+
+### Testing
+Run `python test_server.py` to start a local test server on port 5000. Configure the `endpoint` in the web UI to `http://localhost:5000/v1.0/industry/data` for testing with your credentials. The test server decrypts and logs payloads for verification.
 
 ## 🔗 API Endpoints
 - `GET /`: Admin dashboard.

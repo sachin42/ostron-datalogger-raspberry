@@ -900,4 +900,4 @@ if __name__ == '__main__':
     logger.info("Datalogger application started")
     
     # Run web app
-    app.run(host='0.0.0.0', port=9999, debug=True)
+    app.run(host='0.0.0.0', port=9999, debug=False)
