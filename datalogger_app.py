@@ -277,8 +277,8 @@ def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
         logger.error(f"Failed to send error to endpoint: {e}")
         return False
 
-def build_plain_payload(sensors: dict, device_id: str, station_id: str, 
-                        lat: float = 28.6129, lon: float = 77.2295) -> str:
+def build_plain_payload(sensors: dict, device_id: str, station_id: str,
+                        lat: float = 28.6129, lon: float = 77.2295, flag: str = "U") -> str:
     """Build plain JSON payload"""
     params = []
     ts = get_aligned_timestamp_ms()
@@ -288,7 +288,7 @@ def build_plain_payload(sensors: dict, device_id: str, station_id: str,
             "value": data['value'],
             "unit": data['unit'],
             "timestamp": ts,
-            "flag": "U"
+            "flag": flag
         })
     payload = {
         "data": [
@@ -322,16 +322,16 @@ def generate_signature(token_id: str, public_key_pem: str) -> str:
     encrypted = cipher.encrypt(message)
     return base64.b64encode(encrypted).decode()
 
-def send_to_server(sensors: dict, device_id: str, station_id: str, 
+def send_to_server(sensors: dict, device_id: str, station_id: str,
                    token_id: str, public_key_pem: str, config: dict,
                    endpoint: str = "https://cems.cpcb.gov.in/v1.0/industry/data",
-                   max_retries: int = 3) -> Tuple[bool, int, str]:
+                   max_retries: int = 3, flag: str = "U") -> Tuple[bool, int, str]:
     """Send data to server with retry logic"""
     if not sensors:
         logger.info("No sensor data to send")
         return False, 0, "No data"
     
-    plain_json = build_plain_payload(sensors, device_id, station_id)
+    plain_json = build_plain_payload(sensors, device_id, station_id, flag=flag)
     last_response = None
     last_status_code = 0
     
@@ -510,7 +510,7 @@ def logger_thread():
                 continue
             
             if config.get('calibration_mode', False):
-                interval = 30  # 30 seconds
+                interval = 60  # 1 minute
             else:
                 interval = 15 * 60  # Fixed 15 minutes
             current = time.time()
@@ -526,15 +526,17 @@ def logger_thread():
                         config['last_fetch_success'] = datetime.now(IST).isoformat()
                     
                     logger.info(f"Fetched sensors: {sensors}")
-                    
+
                     # Send data
+                    flag = "C" if config.get('calibration_mode', False) else "U"
                     success, status, text = send_to_server(
                         sensors,
                         config.get('device_id', ''),
                         config.get('station_id', ''),
                         config.get('token_id', ''),
                         config.get('public_key', ''),
-                        config
+                        config,
+                        flag=flag
                     )
 
                     config['total_sends'] = config.get('total_sends', 0) + 1
@@ -552,17 +554,19 @@ def logger_thread():
                         # Send error after 3 failed attempts
                         send_error_to_endpoint("SEND_FAILED", config['last_error'], config)
 
-                        # Queue encrypted payload for retry
-                        plain_json = build_plain_payload(sensors, config.get('device_id', ''), config.get('station_id', ''))
-                        encrypted_payload = encrypt_payload(plain_json, config.get('token_id', ''))
-                        aligned_ts = get_aligned_timestamp_ms()
-                        queue = load_queue()
-                        queue.append({
-                            'encrypted_payload': encrypted_payload,
-                            'timestamp': datetime.now(IST).isoformat(),
-                            'aligned_ts': aligned_ts
-                        })
-                        save_queue(queue[-100:])  # Keep last 100
+                        # Queue encrypted payload for retry (not in calibration mode)
+                        if not config.get('calibration_mode', False):
+                            flag = "C" if config.get('calibration_mode', False) else "U"
+                            plain_json = build_plain_payload(sensors, config.get('device_id', ''), config.get('station_id', ''), flag=flag)
+                            encrypted_payload = encrypt_payload(plain_json, config.get('token_id', ''))
+                            aligned_ts = get_aligned_timestamp_ms()
+                            queue = load_queue()
+                            queue.append({
+                                'encrypted_payload': encrypted_payload,
+                                'timestamp': datetime.now(IST).isoformat(),
+                                'aligned_ts': aligned_ts
+                            })
+                            save_queue(queue[-100:])  # Keep last 100
                         logger.error(f"Failed to send data: {text}")
                 
                 save_config(config)
@@ -623,13 +627,15 @@ def test_send():
     if not sensors:
         return jsonify({"success": False, "error": "No sensor data fetched"})
     
+    flag = "C" if config.get('calibration_mode', False) else "U"
     success, status, text = send_to_server(
         sensors,
         config.get('device_id', ''),
         config.get('station_id', ''),
         config.get('token_id', ''),
         config.get('public_key', ''),
-        config
+        config,
+        flag=flag
     )
     
     return jsonify({
