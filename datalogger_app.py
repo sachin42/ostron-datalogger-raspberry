@@ -207,9 +207,9 @@ def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
         endpoint = config.get('error_endpoint_url', 
                              'http://65.1.87.62/ocms/Cpcb/add_cpcberror')
         cookie = config.get('error_session_cookie', '')
-        
+        id = 861192078519884
         context = {
-            'tag': tag,
+            'tag': tag + str(id),
             'error_message': error_msg,
             'device_id': config.get('device_id', ''),
             'station_id': config.get('station_id', ''),
