@@ -124,7 +124,6 @@ def get_default_config() -> dict:
         "public_key": "",
         "datapage_url": "",
         "sensors": [],
-        "fetch_send_interval_minutes": 15,
         "calibration_mode": False,
         "server_running": False,
         "last_fetch_success": "",
@@ -443,7 +442,7 @@ def fetch_sensor_data(datapage_url: str, config_sensors: dict, config: dict) -> 
         return {}
 
 def retry_failed_transmissions(config: dict) -> int:
-    """Retry queued failed transmissions"""
+    """Retry queued failed transmissions after successful send"""
     queue = load_queue()
     if not queue:
         return 0
@@ -489,9 +488,6 @@ def retry_failed_transmissions(config: dict) -> int:
                 logger.info(f"Successfully sent queued data from {item['timestamp']}")
             else:
                 remaining.append(item)
-                if 400 <= response.status_code < 500:
-                    send_error_to_endpoint("SERVER_ERROR", response.text, config,
-                                           {'response': response.text, 'status_code': response.status_code})
 
         except Exception as e:
             logger.error(f"Retry failed: {e}")
@@ -516,15 +512,10 @@ def logger_thread():
             if config.get('calibration_mode', False):
                 interval = 30  # 30 seconds
             else:
-                interval = config.get('fetch_send_interval_minutes', 15) * 60
+                interval = 15 * 60  # Fixed 15 minutes
             current = time.time()
 
             if current - last_send >= interval:
-                # Retry failed transmissions first
-                retry_count = retry_failed_transmissions(config)
-                if retry_count > 0:
-                    logger.info(f"Retried {retry_count} queued transmissions")
-                
                 # Fetch new data
                 config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
                 sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors, config)
@@ -552,9 +543,14 @@ def logger_thread():
                         config['last_send_success'] = datetime.now(IST).isoformat()
                         config['last_error'] = ""
                         logger.info("Data sent successfully")
+                        # Retry queued data after successful send
+                        retry_failed_transmissions(config)
                     else:
                         config['failed_sends'] = config.get('failed_sends', 0) + 1
                         config['last_error'] = f"Status {status}: {text}"
+
+                        # Send error after 3 failed attempts
+                        send_error_to_endpoint("SEND_FAILED", config['last_error'], config)
 
                         # Queue encrypted payload for retry
                         plain_json = build_plain_payload(sensors, config.get('device_id', ''), config.get('station_id', ''))
@@ -571,7 +567,7 @@ def logger_thread():
                 
                 save_config(config)
                 last_send = current
-            
+
             time.sleep(5)
             
         except Exception as e:
@@ -653,7 +649,6 @@ def index():
         config['station_id'] = request.form['station_id']
         config['public_key'] = request.form['public_key']
         config['datapage_url'] = request.form['datapage_url']
-        config['fetch_send_interval_minutes'] = int(request.form['interval'])
         config['calibration_mode'] = 'calibration' in request.form
         config['server_running'] = 'running' in request.form
         config['error_endpoint_url'] = request.form.get('error_endpoint_url', '')
@@ -785,7 +780,7 @@ def index():
         <label>Station ID:</label><input type="text" name="station_id" value="{{ config.station_id }}" required>
         <label>Public Key:</label><textarea name="public_key" required>{{ config.public_key }}</textarea>
         <label>Datapage URL:</label><input type="text" name="datapage_url" value="{{ config.datapage_url }}" required>
-        <label>Fetch/Send Interval (minutes):</label><input type="number" name="interval" value="{{ config.fetch_send_interval_minutes }}" min="1" required>
+
         <label>Calibration Mode (30 sec intervals):</label><input type="checkbox" name="calibration" {% if config.get('calibration_mode') %}checked{% endif %}>
         <label>Server Running:</label><input type="checkbox" name="running" {% if config.server_running %}checked{% endif %}>
         
