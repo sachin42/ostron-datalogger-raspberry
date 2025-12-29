@@ -26,7 +26,7 @@ A robust, modular Flask-based application for collecting sensor data from HTML s
 - ⏰ **Scheduled Logging**: 15-minute intervals (or 1-min calibration mode) for compliance. Calibration mode uses real-time timestamps and skips queuing failed sends.
 - 📊 **Health Monitoring**: Real-time status via `/health` endpoint.
 - 🛠️ **Raspberry Pi Optimized**: Cross-platform file locking, systemd service support.
-- 📈 **Error Reporting**: Automated alerts to remote endpoints with context.
+ - 📈 **Error Reporting**: Automated alerts to remote endpoints with public IP and context, including fallback support.
 
 ## 🛠️ Installation
 

@@ -279,8 +279,33 @@ def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
         logger.error(f"Failed to send error to endpoint: {e}")
         return False
 
+# Add this new function after the send_error_to_endpoint function
+def heartbeat_thread():
+    """Send IP heartbeat every 30 minutes"""
+    # Wait 30 minutes before first heartbeat
+    time.sleep(30 * 60)
+    
+    while True:
+        try:
+            config = load_config()
+            
+            # Only send heartbeat if server is running
+            if config.get('server_running', False):
+                public_ip = get_public_ip()
+                heartbeat_msg = f"Heartbeat - System Running - IP: {public_ip}"
+                
+                logger.info(f"Sending heartbeat: {heartbeat_msg}")
+                send_error_to_endpoint("HEARTBEAT", heartbeat_msg, config)
+            
+            # Wait 30 minutes before next heartbeat
+            time.sleep(30 * 60)
+            
+        except Exception as e:
+            logger.error(f"Error in heartbeat thread: {e}")
+            time.sleep(30 * 60)
+
 def build_plain_payload(sensors: dict, device_id: str, station_id: str,
-                        lat: float = 28.6129, lon: float = 77.2295, flag: str = "U", align: bool = True) -> str:
+                        flag: str = "U", align: bool = True) -> str:
     """Build plain JSON payload"""
     params = []
     if align:
@@ -304,9 +329,7 @@ def build_plain_payload(sensors: dict, device_id: str, station_id: str,
                         "deviceId": device_id,
                         "params": params
                     }
-                ],
-                "latitude": lat,
-                "longitude": lon
+                ]
             }
         ]
     }
@@ -894,8 +917,19 @@ def index():
 
 if __name__ == '__main__':
     # Start logger thread
-    thread = threading.Thread(target=logger_thread, daemon=True)
-    thread.start()
+    logger_thread_obj = threading.Thread(target=logger_thread, daemon=True)
+    logger_thread_obj.start()
+    
+    # Start heartbeat thread
+    heartbeat_thread_obj = threading.Thread(target=heartbeat_thread, daemon=True)
+    heartbeat_thread_obj.start()
+
+    config = load_config()
+    public_ip = get_public_ip()
+    heartbeat_msg = f"System Started - IP: {public_ip}"
+                
+    logger.info(f"Sending heartbeat: {heartbeat_msg}")
+    send_error_to_endpoint("HEARTBEAT", heartbeat_msg, config)
     
     logger.info("Datalogger application started")
     
