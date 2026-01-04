@@ -8,3 +8,4 @@ ODAMS_API_Document.pdf
 AGENTS.md
 __pycache__/
 .venv/
+.claude/

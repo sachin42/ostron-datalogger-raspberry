@@ -1,0 +1,192 @@
+import json
+import time
+import requests
+from datetime import datetime
+from typing import Tuple
+from bs4 import BeautifulSoup
+
+from .constants import IST, logger
+from .crypto import encrypt_payload, generate_signature
+from .payload import build_plain_payload
+
+
+def get_public_ip() -> str:
+    """Get public IP address"""
+    try:
+        response = requests.get('https://api.ipify.org?format=text', timeout=5)
+        return response.text.strip()
+    except Exception as e:
+        logger.warning(f"Failed to get public IP: {e}")
+        return "Unknown"
+
+
+def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
+                           response_data: dict = None) -> bool:
+    """Send error to HTTP endpoint with context"""
+    try:
+        endpoint = config.get('error_endpoint_url',
+                              'http://65.1.87.62/ocms/Cpcb/add_cpcberror')
+        cookie = config.get('error_session_cookie', '')
+        id = 861192078519884
+        public_ip = get_public_ip()
+
+        context = {
+            'tag': f"{tag} - UID:{id}",
+            'error_message': error_msg,
+            'device_id': config.get('device_id', ''),
+            'station_id': config.get('station_id', ''),
+            'public_ip': public_ip,
+            'last_fetch_success': config.get('last_fetch_success', 'Never'),
+            'last_send_success': config.get('last_send_success', 'Never'),
+            'total_sends': config.get('total_sends', 0),
+            'failed_sends': config.get('failed_sends', 0),
+            'timestamp': datetime.now(IST).isoformat()
+        }
+
+        if response_data:
+            context['response_data'] = response_data
+
+        error_message = f"{tag} - UID:{id} - IP:{public_ip} - {error_msg}"
+
+        headers = {
+            'Cookie': f'ci_session={cookie}'
+        }
+
+        data = {
+            'error': error_message
+        }
+
+        logger.error(f"Sending error to endpoint: {error_message}")
+        logger.error(f"Context: {context}")
+
+        response = requests.post(endpoint, headers=headers, data=data, timeout=10)
+        logger.info(f"Error endpoint response: {response.status_code} - {response.text}")
+
+        return response.status_code == 200
+
+    except Exception as e:
+        logger.error(f"Failed to send error to endpoint: {e}")
+        return False
+
+
+def send_to_server(sensors: dict, device_id: str, station_id: str,
+                   token_id: str, public_key_pem: str, config: dict,
+                   endpoint: str = None,
+                   max_retries: int = 3, flag: str = "U", align: bool = True) -> Tuple[bool, int, str]:
+    """Send data to server with retry logic"""
+    if not endpoint:
+        endpoint = config.get('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
+    if not sensors:
+        logger.info("No sensor data to send")
+        return False, 0, "No data"
+
+    plain_json = build_plain_payload(sensors, device_id, station_id, flag=flag, align=align)
+    last_response = None
+    last_status_code = 0
+
+    for attempt in range(max_retries):
+        try:
+            encrypted_payload = encrypt_payload(plain_json, token_id)
+            signature = generate_signature(token_id, public_key_pem)
+
+            headers = {
+                "Content-Type": "text/plain",
+                "X-Device-Id": device_id,
+                "signature": signature
+            }
+
+            logger.info(f"Attempt {attempt + 1}/{max_retries} - Plain JSON: {plain_json}")
+
+            response = requests.post(endpoint, data=encrypted_payload,
+                                     headers=headers, timeout=20)
+            logger.info(f"Send status: {response.status_code} - {response.text}")
+
+            last_response = response.text
+            last_status_code = response.status_code
+
+            success = False
+            if response.status_code == 200:
+                try:
+                    data = json.loads(response.text.strip())
+                    success = data.get('msg') == 'success' and data.get('status') == 1
+                except json.JSONDecodeError:
+                    pass
+
+            if success:
+                return True, response.status_code, response.text
+
+            # Don't retry on client errors (4xx)
+            if 400 <= response.status_code < 500:
+                error_msg = response.text
+                send_error_to_endpoint("SERVER_ERROR", error_msg, config,
+                                       {'response': response.text, 'status_code': response.status_code})
+                return False, response.status_code, response.text
+
+            # Exponential backoff for retries
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+
+        except Exception as e:
+            logger.error(f"Attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+
+    # All retries failed, send error report
+    if last_response:
+        error_msg = last_response
+        send_error_to_endpoint("SERVER_ERROR", error_msg, config,
+                               {'response': last_response, 'status_code': last_status_code})
+    else:
+        error_msg = "Max retries exceeded - No response from server"
+        send_error_to_endpoint("SERVER_ERROR", error_msg, config)
+
+    return False, last_status_code, last_response if last_response else "Max retries exceeded"
+
+
+def fetch_sensor_data(datapage_url: str, config_sensors: dict, config: dict) -> dict:
+    """Fetch sensor data from webpage"""
+    try:
+        if datapage_url.startswith('file://'):
+            file_path = datapage_url[7:]
+            with open(file_path, 'r', encoding='utf-8') as f:
+                html = f.read()
+        else:
+            response = requests.get(datapage_url, timeout=10)
+            response.raise_for_status()
+            html = response.text
+
+        soup = BeautifulSoup(html, 'html.parser')
+        sensors = {}
+
+        for row in soup.find_all('tr', class_=['EvenRow', 'OddRow']):
+            sid_td = row.find('td', id=lambda x: x and x.startswith('SID'))
+            if sid_td:
+                sid = sid_td.text.strip()
+                if sid in config_sensors:
+                    num = ''.join(filter(str.isdigit, sid_td['id']))
+                    mval_td = row.find('td', {'id': f'MVAL{num}'})
+                    munit_td = row.find('td', {'id': f'MUNIT{num}'})
+
+                    if mval_td:
+                        param_api = config_sensors[sid]['param_name']
+                        try:
+                            value = float(mval_td.text.strip())
+                            unit = config_sensors[sid]['unit'] or (munit_td.text.strip() if munit_td else '')
+                            sensors[param_api] = {'value': value, 'unit': unit}
+                        except ValueError:
+                            logger.warning(f"Invalid value for sensor {sid}")
+
+        return sensors
+    except requests.RequestException as e:
+        error_msg = f"Network error: {str(e)}"
+        if hasattr(e, 'response') and e.response is not None:
+            error_msg = f"HTTP {e.response.status_code}: {str(e)}"
+        logger.error(f"Error fetching data: {error_msg}")
+        send_error_to_endpoint("FETCH_ERROR", error_msg, config,
+                               {'http_status': e.response.status_code if hasattr(e, 'response') and e.response else None})
+        return {}
+    except Exception as e:
+        error_msg = f"Parsing error: {str(e)}"
+        logger.error(f"Error fetching data: {error_msg}")
+        send_error_to_endpoint("FETCH_ERROR", error_msg, config)
+        return {}
