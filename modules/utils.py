@@ -2,10 +2,14 @@ from datetime import datetime
 from .constants import IST
 
 
-def get_aligned_timestamp_ms() -> int:
-    """Get timestamp aligned to 15-minute intervals"""
+def get_aligned_timestamp_ms(alignment_minutes: int = 15) -> int:
+    """
+    Get timestamp aligned to specified minute intervals
+    Default: 15-minute intervals (production)
+    DEV_MODE: 1-minute intervals (development/testing)
+    """
     now = datetime.now(IST)
-    aligned_minute = (now.minute // 15) * 15
+    aligned_minute = (now.minute // alignment_minutes) * alignment_minutes
     aligned = now.replace(minute=aligned_minute, second=0, microsecond=0)
     return int(aligned.timestamp() * 1000)
 

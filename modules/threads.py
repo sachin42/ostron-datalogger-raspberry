@@ -40,11 +40,19 @@ def heartbeat_thread():
 
 
 def logger_thread():
-    """Background thread for data logging - always uses 15-minute intervals"""
+    """Background thread for data logging - uses 15-minute intervals (1-minute in DEV_MODE)"""
     last_send = 0
-    # Always use 15-minute intervals
-    alignment_minutes = 15
+
+    # Check if DEV_MODE is enabled
+    dev_mode = get_env('dev_mode', False)
+    alignment_minutes = 1 if dev_mode else 15
     interval_seconds = alignment_minutes * 60
+
+    if dev_mode:
+        logger.info(" DEV_MODE enabled - using 1-minute intervals")
+    else:
+        logger.info("Production mode - using 15-minute intervals")
+
     now = datetime.now(IST)
 
     # Calculate next aligned time
@@ -122,7 +130,8 @@ def logger_thread():
 
                             plain_json = build_plain_payload(sensors, device_id, station_id)
                             encrypted_payload = encrypt_payload(plain_json, token_id)
-                            aligned_ts = get_aligned_timestamp_ms()
+                            # Use same alignment as build_plain_payload
+                            aligned_ts = get_aligned_timestamp_ms(alignment_minutes)
                             queue = load_queue()
                             queue.append({
                                 'encrypted_payload': encrypted_payload,

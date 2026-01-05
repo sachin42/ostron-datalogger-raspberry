@@ -26,6 +26,7 @@ def save_queue(queue: List[dict]):
     """Save failed transmission queue"""
     try:
         with open(QUEUE_FILE, 'w') as f:
+            logger.info(f"Saving queue with {len(queue)} items")
             json.dump(queue, f, indent=2)
     except Exception as e:
         logger.error(f"Error saving queue: {e}")

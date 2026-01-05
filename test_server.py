@@ -204,9 +204,12 @@ def index():
         </div>
 
         <div class="section info">
-            <h3>ℹ️ Test Endpoint</h3>
-            <p><strong>POST</strong> http://localhost:5000/v1.0/industry/data</p>
-            <p>Configure this endpoint in your .env file: <code>ENDPOINT=http://localhost:5000/v1.0/industry/data</code></p>
+            <h3>ℹ️ Test Endpoints</h3>
+            <p><strong>POST</strong> http://localhost:5000/v1.0/industry/data - Data submission endpoint</p>
+            <p><strong>POST</strong> http://localhost:5000/ocms/Cpcb/add_cpcberror - Error reporting endpoint</p>
+            <p>Configure these endpoints in your .env file:</p>
+            <code>ENDPOINT=http://localhost:5000/v1.0/industry/data</code><br>
+            <code>ERROR_ENDPOINT_URL=http://localhost:5000/ocms/Cpcb/add_cpcberror</code>
         </div>
 
         <script>
@@ -274,6 +277,41 @@ def update_config():
     print(f"   Decode Signature: {server_config['decode_signature']}")
     print(f"{'='*60}\n")
     return jsonify({"status": "updated", "config": server_config})
+
+@app.route('/ocms/Cpcb/add_cpcberror', methods=['POST'])
+def receive_error():
+    """Error reporting endpoint for testing error and heartbeat messages"""
+    print(f"\n{'='*80}")
+    print(f"🚨 Error/Heartbeat Received")
+    print(f"{'='*80}")
+
+    try:
+        # Print headers
+        print(f"Headers:")
+        for key, value in request.headers.items():
+            print(f"  {key}: {value}")
+
+        # Print form data
+        if request.form:
+            print(f"\nForm Data:")
+            for key, value in request.form.items():
+                print(f"  {key}: {value}")
+
+        # Print raw data if present
+        if request.data:
+            print(f"\nRaw Data:")
+            print(f"  {request.data.decode('utf-8', errors='replace')}")
+
+        print(f"{'='*80}\n")
+
+        return jsonify({"status": "success", "message": "Error received"}), 200
+
+    except Exception as e:
+        print(f"\n❌ Error processing request: {e}")
+        print(f"{'='*80}\n")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/v1.0/industry/data', methods=['POST'])
 def receive_data():
@@ -387,7 +425,8 @@ if __name__ == '__main__':
     print(f"   STATION_ID: {STATION_ID}")
     print(f"   PUBLIC_KEY: {'Loaded' if PUBLIC_KEY_PEM else 'Not loaded'}")
     print(f"\n🌐 Web UI: http://localhost:5000")
-    print(f"📡 API Endpoint: http://localhost:5000/v1.0/industry/data")
+    print(f"📡 Data Endpoint: http://localhost:5000/v1.0/industry/data")
+    print(f"🚨 Error Endpoint: http://localhost:5000/ocms/Cpcb/add_cpcberror")
     print(f"\n💡 Configure the test server behavior via the web UI")
     print("="*80 + "\n")
 

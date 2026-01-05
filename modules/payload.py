@@ -1,12 +1,17 @@
 import json
 
+from .config import get_env
 from .utils import get_aligned_timestamp_ms
 
 
 def build_plain_payload(sensors: dict, device_id: str, station_id: str) -> str:
     """Build plain JSON payload with aligned timestamps and 'U' flag"""
     params = []
-    ts = get_aligned_timestamp_ms()
+
+    # Use 1-minute alignment in DEV_MODE, 15-minute in production
+    dev_mode = get_env('dev_mode', False)
+    alignment_minutes = 1 if dev_mode else 15
+    ts = get_aligned_timestamp_ms(alignment_minutes)
 
     for param, data in sensors.items():
         params.append({

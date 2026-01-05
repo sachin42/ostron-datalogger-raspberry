@@ -23,6 +23,10 @@ pip install -r requirements.txt
 # Configure environment variables
 # Edit .env file with your credentials
 
+# For development/testing, enable DEV_MODE in .env for 1-minute intervals
+# DEV_MODE=true  (1-minute intervals, faster testing)
+# DEV_MODE=false (15-minute intervals, production)
+
 # Run application (development)
 python datalogger_app.py
 
@@ -56,11 +60,13 @@ sudo systemctl stop datalogger
 ## Architecture
 
 ### Threading Model
+
 The application runs three concurrent threads:
 1. **Main Thread**: Flask web server (port 9999) for admin interface
-2. **Logger Thread** ([modules/threads.py:45](modules/threads.py#L45)): Background data collection and transmission
-   - Always uses 15-minute aligned intervals
-   - Timestamps aligned to XX:00, XX:15, XX:30, XX:45
+2. **Logger Thread** ([modules/threads.py:42](modules/threads.py#L42)): Background data collection and transmission
+   - Production mode (DEV_MODE=false): 15-minute aligned intervals (XX:00, XX:15, XX:30, XX:45)
+   - Development mode (DEV_MODE=true): 1-minute aligned intervals (XX:00, XX:01, XX:02, ...)
+   - Set DEV_MODE in .env file to control behavior
 3. **Heartbeat Thread** ([modules/threads.py:20](modules/threads.py#L20)): IP reporting every 30 minutes
 
 ### Module Structure
@@ -84,11 +90,16 @@ modules/
 The application uses a three-tier configuration system:
 
 #### 1. Environment Variables (.env) - Static Constants
+
 Loaded once at startup, immutable during runtime:
 - `TOKEN_ID` - AES encryption key (base64 encoded)
 - `DEVICE_ID` - Unique device identifier
 - `STATION_ID` - Station identifier
+- `UID` - Unique identifier for error reporting
 - `PUBLIC_KEY` - RSA public key (PEM format)
+- `DEV_MODE` - Development mode flag (true/false)
+  - `true` = 1-minute intervals for faster testing
+  - `false` = 15-minute intervals for production
 - `DATAPAGE_URL` - Source URL for sensor data
 - `ENDPOINT` - ODAMS/CPCB server endpoint
 - `ERROR_ENDPOINT_URL` - Error reporting endpoint
@@ -134,7 +145,7 @@ See [modules/status.py](modules/status.py) for implementation.
 - Flag: "U" (upload)
 - Failed sends queued for retry
 
-**Note**: Calibration mode has been removed. All logging uses 15-minute intervals.
+**Note**: Calibration mode has been removed. Use DEV_MODE in .env for testing with 1-minute intervals.
 
 ### Error Reporting
 
@@ -156,12 +167,14 @@ Failed transmissions are stored in [failed_queue.json](failed_queue.json):
 
 ### Timestamp Rules
 
-- **Alignment**: Timestamps always align to 15-min boundaries (XX:00, XX:15, XX:30, XX:45)
+- **Alignment**:
+  - Production (DEV_MODE=false): 15-minute boundaries (XX:00, XX:15, XX:30, XX:45)
+  - Development (DEV_MODE=true): 1-minute boundaries (XX:00, XX:01, XX:02, ...)
 - **Backdate Limit**: Server rejects data older than 7 days
 - **Future Dates**: Not allowed
 - **Timezone**: All times in IST (Asia/Kolkata)
 
-See [validate_timestamp()](modules/utils.py#L66) for validation logic.
+See [get_aligned_timestamp_ms()](modules/utils.py#L5) for alignment implementation.
 
 ### HTML Parsing
 
@@ -178,12 +191,35 @@ Parser extracts data by matching sensor_id from sensors.json to SID*, then readi
 
 ## Testing
 
-Use [test_server.py](test_server.py) to verify encryption/decryption locally:
+Use [test_server.py](test_server.py) to verify encryption/decryption and error reporting locally:
+
+### Test Server Features
+
+- **Web UI**: <http://localhost:5000> for configuration
+- **Data Endpoint**: <http://localhost:5000/v1.0/industry/data>
+- **Error Endpoint**: <http://localhost:5000/ocms/Cpcb/add_cpcberror>
+- Simulate HTTP errors (400, 401, 403, 404, 500, 502, 503)
+- Simulate ODAMS API errors (all 14 error codes: 10-121)
+- Validate credentials from .env
+- Decode signature headers
+- Console logging with payload decryption
+
+### Testing Steps
+
 1. Run: `python test_server.py` (starts on port 5000)
-2. Configure ENDPOINT in .env to `http://localhost:5000/v1.0/industry/data`
+2. Configure endpoints in .env:
+
+   ```bash
+   ENDPOINT=http://localhost:5000/v1.0/industry/data
+   ERROR_ENDPOINT_URL=http://localhost:5000/ocms/Cpcb/add_cpcberror
+   ```
+
 3. Restart application
 4. Use "Test Fetch" and "Test Send" buttons in web UI
-5. Check test server console for decrypted payload
+5. Check test server console for:
+   - Decrypted payloads
+   - Error/heartbeat messages
+   - Validation results
 
 ## Key Implementation Details
 

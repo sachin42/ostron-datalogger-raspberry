@@ -25,6 +25,7 @@ def load_env_config() -> dict:
         'station_id': os.getenv('STATION_ID', ''),
         'uid': os.getenv('UID',''),
         'public_key': os.getenv('PUBLIC_KEY', ''),
+        'dev_mode': os.getenv('DEV_MODE', 'false').lower() in ('true', '1', 'yes'),
         'datapage_url': os.getenv('DATAPAGE_URL', ''),
         'endpoint': os.getenv('ENDPOINT', 'https://cems.cpcb.gov.in/v1.0/industry/data'),
         'error_endpoint_url': os.getenv('ERROR_ENDPOINT_URL', 'http://65.1.87.62/ocms/Cpcb/add_cpcberror'),

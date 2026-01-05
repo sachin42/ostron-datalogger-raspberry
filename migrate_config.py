@@ -50,7 +50,9 @@ def migrate_config():
     env_content = f"""TOKEN_ID={config.get('token_id', '')}
 DEVICE_ID={config.get('device_id', '')}
 STATION_ID={config.get('station_id', '')}
+UID={config.get('uid', '')}
 PUBLIC_KEY="{public_key}"
+DEV_MODE=false
 DATAPAGE_URL={config.get('datapage_url', '')}
 ENDPOINT={config.get('endpoint', 'https://cems.cpcb.gov.in/v1.0/industry/data')}
 ERROR_ENDPOINT_URL={config.get('error_endpoint_url', 'http://65.1.87.62/ocms/Cpcb/add_cpcberror')}
