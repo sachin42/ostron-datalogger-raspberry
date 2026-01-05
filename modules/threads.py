@@ -19,8 +19,6 @@ from .utils import get_aligned_timestamp_ms
 
 def heartbeat_thread():
     """Send IP heartbeat every 30 minutes"""
-    # Wait 30 minutes before first heartbeat
-    time.sleep(30 * 60)
 
     while True:
         try:
@@ -28,8 +26,7 @@ def heartbeat_thread():
 
             # Only send heartbeat if server is running
             if sensors_config.get('server_running', False):
-                public_ip = get_public_ip()
-                heartbeat_msg = f"Heartbeat - System Running - IP: {public_ip}"
+                heartbeat_msg = f"System Running"
 
                 logger.info(f"Sending heartbeat: {heartbeat_msg}")
                 send_error_to_endpoint("HEARTBEAT", heartbeat_msg)

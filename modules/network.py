@@ -21,34 +21,16 @@ def get_public_ip() -> str:
         logger.warning(f"Failed to get public IP: {e}")
         return "Unknown"
 
-
 def send_error_to_endpoint(tag: str, error_msg: str, response_data: dict = None) -> bool:
     """Send error to HTTP endpoint with context"""
     try:
         endpoint = get_env('error_endpoint_url', 'http://65.1.87.62/ocms/Cpcb/add_cpcberror')
-        cookie = get_env('error_session_cookie', '')
-        id = 861192078519884
+        cookie = get_env('error_session_cookie', '')      
         public_ip = get_public_ip()
-
-        status_dict = status.to_dict()
-
-        context = {
-            'tag': f"{tag} - UID:{id}",
-            'error_message': error_msg,
-            'device_id': get_env('device_id', ''),
-            'station_id': get_env('station_id', ''),
-            'public_ip': public_ip,
-            'last_fetch_success': status_dict.get('last_fetch_success', 'Never'),
-            'last_send_success': status_dict.get('last_send_success', 'Never'),
-            'total_sends': status_dict.get('total_sends', 0),
-            'failed_sends': status_dict.get('failed_sends', 0),
-            'timestamp': datetime.now(IST).isoformat()
-        }
-
-        if response_data:
-            context['response_data'] = response_data
-
-        error_message = f"{tag} - UID:{id} - IP:{public_ip} - {error_msg}"
+        if tag == "HEARTBEAT":
+            error_message = f"{tag} - UID:{get_env('uid','')} - IP:{public_ip} - Message:{error_msg} - Time:{datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')}"
+        else:
+            error_message = f"{tag} - UID:{get_env('uid','')} - IP:{public_ip} - Message:{error_msg} - info:{json.dumps(response_data) if response_data else 'None'} - Time:{datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')}"
 
         headers = {
             'Cookie': f'ci_session={cookie}'
@@ -58,11 +40,13 @@ def send_error_to_endpoint(tag: str, error_msg: str, response_data: dict = None)
             'error': error_message
         }
 
-        logger.error(f"Sending error to endpoint: {error_message}")
-        logger.error(f"Context: {context}")
+        if tag != "HEARTBEAT":
+            logger.error(f"Sending error to endpoint: {error_message}")
+        else:
+            logger.info(f"Sending heartbeat to endpoint: {error_message}")
 
         response = requests.post(endpoint, headers=headers, data=data, timeout=10)
-        logger.info(f"Error endpoint response: {response.status_code} - {response.text}")
+        logger.info(f"Endpoint response: {response.status_code} - {response.text}")
 
         return response.status_code == 200
 

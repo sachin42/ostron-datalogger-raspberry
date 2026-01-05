@@ -42,12 +42,6 @@ if __name__ == '__main__':
     heartbeat_thread_obj = threading.Thread(target=heartbeat_thread, daemon=True)
     heartbeat_thread_obj.start()
 
-    public_ip = get_public_ip()
-    heartbeat_msg = f"System Started - IP: {public_ip}"
-
-    logger.info(f"Sending heartbeat: {heartbeat_msg}")
-    send_error_to_endpoint("HEARTBEAT", heartbeat_msg)
-
     logger.info("Datalogger application started")
 
     # Run web app

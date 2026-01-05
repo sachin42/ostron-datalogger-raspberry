@@ -23,11 +23,12 @@ def load_env_config() -> dict:
         'token_id': os.getenv('TOKEN_ID', ''),
         'device_id': os.getenv('DEVICE_ID', ''),
         'station_id': os.getenv('STATION_ID', ''),
+        'uid': os.getenv('UID',''),
         'public_key': os.getenv('PUBLIC_KEY', ''),
         'datapage_url': os.getenv('DATAPAGE_URL', ''),
         'endpoint': os.getenv('ENDPOINT', 'https://cems.cpcb.gov.in/v1.0/industry/data'),
         'error_endpoint_url': os.getenv('ERROR_ENDPOINT_URL', 'http://65.1.87.62/ocms/Cpcb/add_cpcberror'),
-        'error_session_cookie': os.getenv('ERROR_SESSION_COOKIE', '')
+        'error_session_cookie': os.getenv('ERROR_SESSION_COOKIE', 'e1j7mnclaennlc5vqfr8ms2iiv1ng2i7')
     }
 
     logger.info("Environment configuration loaded from .env")
