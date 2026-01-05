@@ -21,17 +21,14 @@ def get_public_ip() -> str:
         logger.warning(f"Failed to get public IP: {e}")
         return "Unknown"
 
-def send_error_to_endpoint(tag: str, error_msg: str, response_data: dict = None) -> bool:
+def send_error_to_endpoint(tag: str, error_msg: str) -> bool:
     """Send error to HTTP endpoint with context"""
     try:
         endpoint = get_env('error_endpoint_url', 'http://65.1.87.62/ocms/Cpcb/add_cpcberror')
         cookie = get_env('error_session_cookie', '')      
         public_ip = get_public_ip()
-        if tag == "HEARTBEAT":
-            error_message = f"{tag} - UID:{get_env('uid','')} - IP:{public_ip} - Message:{error_msg} - Time:{datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')}"
-        else:
-            error_message = f"{tag} - UID:{get_env('uid','')} - IP:{public_ip} - Message:{error_msg} - info:{json.dumps(response_data) if response_data else 'None'} - Time:{datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')}"
-
+        error_message = f"{tag} - UID:{get_env('uid','')} - IP:{public_ip} - Message:{error_msg} - Time:{datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')}"
+        
         headers = {
             'Cookie': f'ci_session={cookie}'
         }

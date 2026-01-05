@@ -119,8 +119,7 @@ def logger_thread():
                         status.set_error(f"Status {status_code}: {text}")
 
                         # Send error to endpoint once per loop (15 minutes)
-                        send_error_to_endpoint("SEND_FAILED", status.last_error,
-                                               {'status_code': status_code, 'response': text})
+                        send_error_to_endpoint("SEND_FAILED", status.last_error)
 
                         # Queue encrypted payload for retry only if should_queue is True
                         if should_queue:
