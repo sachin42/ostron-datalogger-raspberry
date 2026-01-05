@@ -3,20 +3,11 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 # File paths
-CONFIG_FILE = 'config.json'
+SENSORS_FILE = 'sensors.json'
 QUEUE_FILE = 'failed_queue.json'
-LOCK_FILE = 'config.lock'
 
 # Time utilities
 IST = pytz.timezone("Asia/Kolkata")
-
-# Cross-platform file locking
-try:
-    import fcntl
-    PLATFORM_WINDOWS = False
-except ImportError:
-    import msvcrt
-    PLATFORM_WINDOWS = True
 
 # Set up rotating file handler
 handler = RotatingFileHandler('datalogger.log', maxBytes=10*1024*1024, backupCount=5)

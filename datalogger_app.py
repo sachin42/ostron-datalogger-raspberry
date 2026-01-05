@@ -4,7 +4,7 @@ from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from modules.constants import logger
-from modules.config import load_config
+from modules.config import load_env_config
 from modules.network import send_error_to_endpoint, get_public_ip
 from modules.threads import logger_thread, heartbeat_thread
 from modules.routes import register_routes
@@ -30,6 +30,10 @@ register_routes(app, auth)
 
 
 if __name__ == '__main__':
+    # Load environment configuration at startup
+    logger.info("Loading environment configuration from .env")
+    env_config = load_env_config()
+
     # Start logger thread
     logger_thread_obj = threading.Thread(target=logger_thread, daemon=True)
     logger_thread_obj.start()
@@ -38,12 +42,11 @@ if __name__ == '__main__':
     heartbeat_thread_obj = threading.Thread(target=heartbeat_thread, daemon=True)
     heartbeat_thread_obj.start()
 
-    config = load_config()
     public_ip = get_public_ip()
     heartbeat_msg = f"System Started - IP: {public_ip}"
 
     logger.info(f"Sending heartbeat: {heartbeat_msg}")
-    send_error_to_endpoint("HEARTBEAT", heartbeat_msg, config)
+    send_error_to_endpoint("HEARTBEAT", heartbeat_msg)
 
     logger.info("Datalogger application started")
 

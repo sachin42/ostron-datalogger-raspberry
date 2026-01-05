@@ -5,6 +5,7 @@ import requests
 from typing import List
 
 from .constants import QUEUE_FILE, logger
+from .config import get_env
 from .crypto import generate_signature
 
 
@@ -30,7 +31,7 @@ def save_queue(queue: List[dict]):
         logger.error(f"Error saving queue: {e}")
 
 
-def retry_failed_transmissions(config: dict) -> int:
+def retry_failed_transmissions() -> int:
     """Retry queued failed transmissions after successful send"""
     queue = load_queue()
     if not queue:
@@ -38,10 +39,11 @@ def retry_failed_transmissions(config: dict) -> int:
 
     successful = 0
     remaining = []
-    endpoint = config.get('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
-    token_id = config.get('token_id', '')
-    public_key_pem = config.get('public_key', '')
-    device_id = config.get('device_id', '')
+
+    endpoint = get_env('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
+    token_id = get_env('token_id', '')
+    public_key_pem = get_env('public_key', '')
+    device_id = get_env('device_id', '')
 
     for item in queue:
         # Check if data is too old (backdate limit 7 days)

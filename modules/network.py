@@ -6,6 +6,8 @@ from typing import Tuple
 from bs4 import BeautifulSoup
 
 from .constants import IST, logger
+from .config import get_env
+from .status import status
 from .crypto import encrypt_payload, generate_signature
 from .payload import build_plain_payload
 
@@ -20,26 +22,26 @@ def get_public_ip() -> str:
         return "Unknown"
 
 
-def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
-                           response_data: dict = None) -> bool:
+def send_error_to_endpoint(tag: str, error_msg: str, response_data: dict = None) -> bool:
     """Send error to HTTP endpoint with context"""
     try:
-        endpoint = config.get('error_endpoint_url',
-                              'http://65.1.87.62/ocms/Cpcb/add_cpcberror')
-        cookie = config.get('error_session_cookie', '')
+        endpoint = get_env('error_endpoint_url', 'http://65.1.87.62/ocms/Cpcb/add_cpcberror')
+        cookie = get_env('error_session_cookie', '')
         id = 861192078519884
         public_ip = get_public_ip()
+
+        status_dict = status.to_dict()
 
         context = {
             'tag': f"{tag} - UID:{id}",
             'error_message': error_msg,
-            'device_id': config.get('device_id', ''),
-            'station_id': config.get('station_id', ''),
+            'device_id': get_env('device_id', ''),
+            'station_id': get_env('station_id', ''),
             'public_ip': public_ip,
-            'last_fetch_success': config.get('last_fetch_success', 'Never'),
-            'last_send_success': config.get('last_send_success', 'Never'),
-            'total_sends': config.get('total_sends', 0),
-            'failed_sends': config.get('failed_sends', 0),
+            'last_fetch_success': status_dict.get('last_fetch_success', 'Never'),
+            'last_send_success': status_dict.get('last_send_success', 'Never'),
+            'total_sends': status_dict.get('total_sends', 0),
+            'failed_sends': status_dict.get('failed_sends', 0),
             'timestamp': datetime.now(IST).isoformat()
         }
 
@@ -69,18 +71,21 @@ def send_error_to_endpoint(tag: str, error_msg: str, config: dict,
         return False
 
 
-def send_to_server(sensors: dict, device_id: str, station_id: str,
-                   token_id: str, public_key_pem: str, config: dict,
-                   endpoint: str = None,
-                   max_retries: int = 3, flag: str = "U", align: bool = True) -> Tuple[bool, int, str]:
+def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) -> Tuple[bool, int, str]:
     """Send data to server with retry logic"""
     if not endpoint:
-        endpoint = config.get('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
+        endpoint = get_env('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
+
     if not sensors:
         logger.info("No sensor data to send")
         return False, 0, "No data"
 
-    plain_json = build_plain_payload(sensors, device_id, station_id, flag=flag, align=align)
+    device_id = get_env('device_id', '')
+    station_id = get_env('station_id', '')
+    token_id = get_env('token_id', '')
+    public_key_pem = get_env('public_key', '')
+
+    plain_json = build_plain_payload(sensors, device_id, station_id)
     last_response = None
     last_status_code = 0
 
@@ -118,7 +123,7 @@ def send_to_server(sensors: dict, device_id: str, station_id: str,
             # Don't retry on client errors (4xx)
             if 400 <= response.status_code < 500:
                 error_msg = response.text
-                send_error_to_endpoint("SERVER_ERROR", error_msg, config,
+                send_error_to_endpoint("SERVER_ERROR", error_msg,
                                        {'response': response.text, 'status_code': response.status_code})
                 return False, response.status_code, response.text
 
@@ -134,16 +139,16 @@ def send_to_server(sensors: dict, device_id: str, station_id: str,
     # All retries failed, send error report
     if last_response:
         error_msg = last_response
-        send_error_to_endpoint("SERVER_ERROR", error_msg, config,
+        send_error_to_endpoint("SERVER_ERROR", error_msg,
                                {'response': last_response, 'status_code': last_status_code})
     else:
         error_msg = "Max retries exceeded - No response from server"
-        send_error_to_endpoint("SERVER_ERROR", error_msg, config)
+        send_error_to_endpoint("SERVER_ERROR", error_msg)
 
     return False, last_status_code, last_response if last_response else "Max retries exceeded"
 
 
-def fetch_sensor_data(datapage_url: str, config_sensors: dict, config: dict) -> dict:
+def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
     """Fetch sensor data from webpage"""
     try:
         if datapage_url.startswith('file://'):
@@ -182,11 +187,11 @@ def fetch_sensor_data(datapage_url: str, config_sensors: dict, config: dict) -> 
         if hasattr(e, 'response') and e.response is not None:
             error_msg = f"HTTP {e.response.status_code}: {str(e)}"
         logger.error(f"Error fetching data: {error_msg}")
-        send_error_to_endpoint("FETCH_ERROR", error_msg, config,
+        send_error_to_endpoint("FETCH_ERROR", error_msg,
                                {'http_status': e.response.status_code if hasattr(e, 'response') and e.response else None})
         return {}
     except Exception as e:
         error_msg = f"Parsing error: {str(e)}"
         logger.error(f"Error fetching data: {error_msg}")
-        send_error_to_endpoint("FETCH_ERROR", error_msg, config)
+        send_error_to_endpoint("FETCH_ERROR", error_msg)
         return {}

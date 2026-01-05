@@ -1,53 +1,5 @@
-import time
 from datetime import datetime
-from .constants import IST, LOCK_FILE, PLATFORM_WINDOWS
-
-# Import platform-specific locking
-if PLATFORM_WINDOWS:
-    import msvcrt
-else:
-    import fcntl
-
-
-def acquire_lock(lock_file: str = LOCK_FILE, timeout: int = 10):
-    """Context manager for cross-platform file locking"""
-    class FileLock:
-        def __init__(self, filename, timeout):
-            self.filename = filename
-            self.timeout = timeout
-            self.file = None
-
-        def __enter__(self):
-            start_time = time.time()
-            while True:
-                try:
-                    self.file = open(self.filename, 'w')
-                    if PLATFORM_WINDOWS:
-                        # Windows locking
-                        msvcrt.locking(self.file.fileno(), msvcrt.LK_NBLCK, 1)
-                    else:
-                        # Unix locking
-                        fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    return self
-                except (IOError, OSError):
-                    if self.file:
-                        self.file.close()
-                    if time.time() - start_time > self.timeout:
-                        raise TimeoutError("Could not acquire lock")
-                    time.sleep(0.1)
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            if self.file:
-                try:
-                    if PLATFORM_WINDOWS:
-                        msvcrt.locking(self.file.fileno(), msvcrt.LK_UNLCK, 1)
-                    else:
-                        fcntl.flock(self.file.fileno(), fcntl.LOCK_UN)
-                except:
-                    pass
-                self.file.close()
-
-    return FileLock(lock_file, timeout)
+from .constants import IST
 
 
 def get_aligned_timestamp_ms() -> int:

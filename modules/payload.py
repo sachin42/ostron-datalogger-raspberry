@@ -1,26 +1,22 @@
 import json
-from datetime import datetime
 
-from .constants import IST
 from .utils import get_aligned_timestamp_ms
 
 
-def build_plain_payload(sensors: dict, device_id: str, station_id: str,
-                        flag: str = "U", align: bool = True) -> str:
-    """Build plain JSON payload"""
+def build_plain_payload(sensors: dict, device_id: str, station_id: str) -> str:
+    """Build plain JSON payload with aligned timestamps and 'U' flag"""
     params = []
-    if align:
-        ts = get_aligned_timestamp_ms()
-    else:
-        ts = int(datetime.now(IST).timestamp() * 1000)
+    ts = get_aligned_timestamp_ms()
+
     for param, data in sensors.items():
         params.append({
             "parameter": param,
             "value": data['value'],
             "unit": data['unit'],
             "timestamp": ts,
-            "flag": flag
+            "flag": "U"
         })
+
     payload = {
         "data": [
             {
@@ -34,4 +30,5 @@ def build_plain_payload(sensors: dict, device_id: str, station_id: str,
             }
         ]
     }
+
     return json.dumps(payload, separators=(",", ":"))

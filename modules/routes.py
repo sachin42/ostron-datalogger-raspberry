@@ -2,7 +2,8 @@ import os
 from flask import request, render_template_string, redirect, jsonify, send_from_directory
 
 from .constants import logger
-from .config import load_config, save_config, validate_config
+from .config import load_env_config, load_sensors_config, save_sensors_config, validate_sensors_config
+from .status import status
 from .queue import load_queue
 from .network import fetch_sensor_data, send_to_server
 
@@ -18,18 +19,19 @@ def register_routes(app, auth):
     @app.route('/health')
     def health():
         """Health check endpoint"""
-        config = load_config()
+        sensors_config = load_sensors_config()
         queue = load_queue()
+        status_dict = status.to_dict()
 
         health_status = {
-            "status": "running" if config.get('server_running') else "stopped",
-            "last_fetch": config.get('last_fetch_success', 'Never'),
-            "last_send": config.get('last_send_success', 'Never'),
-            "total_sends": config.get('total_sends', 0),
-            "failed_sends": config.get('failed_sends', 0),
+            "status": "running" if sensors_config.get('server_running') else "stopped",
+            "last_fetch": status_dict.get('last_fetch_success', 'Never'),
+            "last_send": status_dict.get('last_send_success', 'Never'),
+            "total_sends": status_dict.get('total_sends', 0),
+            "failed_sends": status_dict.get('failed_sends', 0),
             "queued_items": len(queue),
-            "last_error": config.get('last_error', ''),
-            "config_valid": validate_config(config)[0]
+            "last_error": status_dict.get('last_error', ''),
+            "config_valid": validate_sensors_config(sensors_config)[0]
         }
 
         return jsonify(health_status)
@@ -38,9 +40,10 @@ def register_routes(app, auth):
     @auth.login_required
     def test_fetch():
         """Manual test of data fetching"""
-        config = load_config()
-        config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
-        sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors, config)
+        env_config = load_env_config()
+        sensors_config = load_sensors_config()
+        config_sensors = {s['sensor_id']: s for s in sensors_config.get('sensors', [])}
+        sensors = fetch_sensor_data(env_config['datapage_url'], config_sensors)
 
         return jsonify({
             "success": len(sensors) > 0,
@@ -53,29 +56,19 @@ def register_routes(app, auth):
     @auth.login_required
     def test_send():
         """Manual test of data sending"""
-        config = load_config()
-        config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
-        sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors, config)
+        env_config = load_env_config()
+        sensors_config = load_sensors_config()
+        config_sensors = {s['sensor_id']: s for s in sensors_config.get('sensors', [])}
+        sensors = fetch_sensor_data(env_config['datapage_url'], config_sensors)
 
         if not sensors:
             return jsonify({"success": False, "error": "No sensor data fetched"})
 
-        flag = "C" if config.get('calibration_mode', False) else "U"
-        align = not config.get('calibration_mode', False)
-        success, status, text = send_to_server(
-            sensors,
-            config.get('device_id', ''),
-            config.get('station_id', ''),
-            config.get('token_id', ''),
-            config.get('public_key', ''),
-            config,
-            flag=flag,
-            align=align
-        )
+        success, status_code, text = send_to_server(sensors)
 
         return jsonify({
             "success": success,
-            "status": status,
+            "status": status_code,
             "response": text,
             "sensors": sensors
         })
@@ -84,17 +77,8 @@ def register_routes(app, auth):
     @auth.login_required
     def index():
         if request.method == 'POST':
-            config = load_config()
-            config['token_id'] = request.form['token_id']
-            config['device_id'] = request.form['device_id']
-            config['station_id'] = request.form['station_id']
-            config['public_key'] = request.form['public_key']
-            config['datapage_url'] = request.form['datapage_url']
-            config['endpoint'] = request.form.get('endpoint', '')
-            config['calibration_mode'] = 'calibration' in request.form
-            config['server_running'] = 'running' in request.form
-            config['error_endpoint_url'] = request.form.get('error_endpoint_url', '')
-            config['error_session_cookie'] = request.form.get('error_session_cookie', '')
+            sensors_config = load_sensors_config()
+            sensors_config['server_running'] = 'running' in request.form
 
             sensors = []
             for i in range(len(request.form.getlist('sensor_id[]'))):
@@ -103,18 +87,20 @@ def register_routes(app, auth):
                     'unit': request.form.getlist('unit[]')[i],
                     'param_name': request.form.getlist('param_name[]')[i]
                 })
-            config['sensors'] = sensors
+            sensors_config['sensors'] = sensors
 
-            save_config(config)
+            save_sensors_config(sensors_config)
             return redirect('/')
 
-        config = load_config()
+        env_config = load_env_config()
+        sensors_config = load_sensors_config()
         queue = load_queue()
+        status_dict = status.to_dict()
         sensor_values = {}
 
         try:
-            config_sensors = {s['sensor_id']: s for s in config.get('sensors', [])}
-            raw_sensors = fetch_sensor_data(config.get('datapage_url', ''), config_sensors, config)
+            config_sensors = {s['sensor_id']: s for s in sensors_config.get('sensors', [])}
+            raw_sensors = fetch_sensor_data(env_config['datapage_url'], config_sensors)
             for sid, s in config_sensors.items():
                 param = s['param_name']
                 if param in raw_sensors:
@@ -123,7 +109,7 @@ def register_routes(app, auth):
             logger.error(f"Error fetching sensor values for display: {e}")
             sensor_values = {}
 
-        config_valid, config_msg = validate_config(config)
+        config_valid, config_msg = validate_sensors_config(sensors_config)
 
         template = """
     <!DOCTYPE html>
@@ -146,6 +132,7 @@ def register_routes(app, auth):
             form { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
             label { display: block; margin-top: 10px; font-weight: bold; color: #333; }
             input[type="text"], input[type="number"], textarea { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+            input:disabled, textarea:disabled { background-color: #e9ecef; cursor: not-allowed; }
             textarea { height: 100px; font-family: monospace; }
             input[type="checkbox"] { margin-top: 5px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -162,6 +149,8 @@ def register_routes(app, auth):
             .button-group { margin-top: 20px; }
             .error-msg { color: #f44336; padding: 10px; background: #ffebee; border-radius: 4px; margin-bottom: 10px; }
             .success-msg { color: #4CAF50; padding: 10px; background: #e8f5e9; border-radius: 4px; margin-bottom: 10px; }
+            .info-msg { color: #1976d2; padding: 10px; background: #e3f2fd; border-radius: 4px; margin-bottom: 10px; }
+            .readonly-section { background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #6c757d; }
         </style>
     </head>
     <body>
@@ -175,34 +164,34 @@ def register_routes(app, auth):
     <div class="status-card">
         <h2>System Status</h2>
         <div class="status-grid">
-            <div class="status-item {% if config.server_running %}status-good{% else %}status-bad{% endif %}">
+            <div class="status-item {% if server_running %}status-good{% else %}status-bad{% endif %}">
                 <label>Server Status</label>
-                <div class="value">{{ 'Running' if config.server_running else 'Stopped' }}</div>
+                <div class="value">{{ 'Running' if server_running else 'Stopped' }}</div>
             </div>
-            <div class="status-item {% if config.last_fetch_success %}status-good{% else %}status-warning{% endif %}">
+            <div class="status-item {% if status.last_fetch_success %}status-good{% else %}status-warning{% endif %}">
                 <label>Last Fetch</label>
-                <div class="value">{{ config.last_fetch_success or 'Never' }}</div>
+                <div class="value">{{ status.last_fetch_success or 'Never' }}</div>
             </div>
-            <div class="status-item {% if config.last_send_success %}status-good{% else %}status-warning{% endif %}">
+            <div class="status-item {% if status.last_send_success %}status-good{% else %}status-warning{% endif %}">
                 <label>Last Send</label>
-                <div class="value">{{ config.last_send_success or 'Never' }}</div>
+                <div class="value">{{ status.last_send_success or 'Never' }}</div>
             </div>
             <div class="status-item">
                 <label>Total Sends</label>
-                <div class="value">{{ config.get('total_sends', 0) }}</div>
+                <div class="value">{{ status.total_sends }}</div>
             </div>
-            <div class="status-item {% if config.get('failed_sends', 0) > 0 %}status-warning{% else %}status-good{% endif %}">
+            <div class="status-item {% if status.failed_sends > 0 %}status-warning{% else %}status-good{% endif %}">
                 <label>Failed Sends</label>
-                <div class="value">{{ config.get('failed_sends', 0) }}</div>
+                <div class="value">{{ status.failed_sends }}</div>
             </div>
             <div class="status-item {% if queue_count > 0 %}status-warning{% else %}status-good{% endif %}">
                 <label>Queued Items</label>
                 <div class="value">{{ queue_count }}</div>
             </div>
         </div>
-        {% if config.get('last_error') %}
+        {% if status.last_error %}
         <div class="error-msg" style="margin-top: 15px;">
-            <strong>Last Error:</strong> {{ config.last_error }}
+            <strong>Last Error:</strong> {{ status.last_error }}
         </div>
         {% endif %}
     </div>
@@ -216,26 +205,30 @@ def register_routes(app, auth):
     </div>
 
     <form method="post">
-        <h2>Configuration</h2>
-        <label>Token ID:</label><input type="text" name="token_id" value="{{ config.token_id }}" required>
-        <label>Device ID:</label><input type="text" name="device_id" value="{{ config.device_id }}" required>
-        <label>Station ID:</label><input type="text" name="station_id" value="{{ config.station_id }}" required>
-        <label>Public Key:</label><textarea name="public_key" required>{{ config.public_key }}</textarea>
-        <label>Datapage URL:</label><input type="text" name="datapage_url" value="{{ config.datapage_url }}" required>
-        <label>Endpoint URL:</label><input type="text" name="endpoint" value="{{ config.get('endpoint', '') }}" placeholder="https://cems.cpcb.gov.in/v1.0/industry/data">
+        <div class="info-msg">
+            <strong>Note:</strong> Environment variables (.env file) are read-only. Edit the .env file manually and restart the application to change these values.
+        </div>
 
-        <label>Calibration Mode (30 sec intervals):</label><input type="checkbox" name="calibration" {% if config.get('calibration_mode') %}checked{% endif %}>
-        <label>Server Running:</label><input type="checkbox" name="running" {% if config.server_running %}checked{% endif %}>
+        <div class="readonly-section">
+            <h2>Environment Configuration (Read-Only)</h2>
+            <label>Token ID:</label><input type="text" value="{{ env.token_id }}" disabled>
+            <label>Device ID:</label><input type="text" value="{{ env.device_id }}" disabled>
+            <label>Station ID:</label><input type="text" value="{{ env.station_id }}" disabled>
+            <label>Public Key:</label><textarea disabled>{{ env.public_key }}</textarea>
+            <label>Datapage URL:</label><input type="text" value="{{ env.datapage_url }}" disabled>
+            <label>Endpoint URL:</label><input type="text" value="{{ env.endpoint }}" disabled>
+            <label>Error Endpoint URL:</label><input type="text" value="{{ env.error_endpoint_url }}" disabled>
+            <label>Error Session Cookie:</label><input type="text" value="{{ env.error_session_cookie }}" disabled>
+        </div>
 
-        <h2>Error Reporting</h2>
-        <label>Error Endpoint URL:</label><input type="text" name="error_endpoint_url" value="{{ config.get('error_endpoint_url', '') }}">
-        <label>Error Session Cookie:</label><input type="text" name="error_session_cookie" value="{{ config.get('error_session_cookie', '') }}">
+        <h2>Runtime Configuration</h2>
+        <label>Server Running:</label><input type="checkbox" name="running" {% if server_running %}checked{% endif %}>
 
         <h2>Sensors</h2>
         <table id="sensors">
         <thead><tr><th>Sensor ID</th><th>Unit</th><th>Parameter Name</th><th>Current Value</th><th>Action</th></tr></thead>
         <tbody>
-        {% for sensor in config.sensors %}
+        {% for sensor in sensors %}
         <tr>
             <td><input type="text" name="sensor_id[]" value="{{ sensor.sensor_id }}" required></td>
             <td><input type="text" name="unit[]" value="{{ sensor.unit }}"></td>
@@ -290,6 +283,12 @@ def register_routes(app, auth):
     </body>
     </html>
     """
-        return render_template_string(template, config=config, sensor_values=sensor_values,
-                                      config_valid=config_valid, config_msg=config_msg,
+        return render_template_string(template,
+                                      env=env_config,
+                                      sensors=sensors_config.get('sensors', []),
+                                      server_running=sensors_config.get('server_running', False),
+                                      sensor_values=sensor_values,
+                                      status=status_dict,
+                                      config_valid=config_valid,
+                                      config_msg=config_msg,
                                       queue_count=len(queue))
