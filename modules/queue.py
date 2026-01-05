@@ -1,12 +1,17 @@
 import json
 import os
 import time
+import threading
 import requests
 from typing import List
 
 from .constants import QUEUE_FILE, logger
 from .config import get_env
 from .crypto import generate_signature
+
+# Global flag to track if retry thread is running
+_retry_thread_running = False
+_retry_thread_lock = threading.Lock()
 
 
 def load_queue() -> List[dict]:
@@ -32,59 +37,93 @@ def save_queue(queue: List[dict]):
         logger.error(f"Error saving queue: {e}")
 
 
-def retry_failed_transmissions() -> int:
-    """Retry queued failed transmissions after successful send"""
-    queue = load_queue()
-    if not queue:
-        return 0
+def _retry_queue_worker():
+    """Background worker thread to retry queued transmissions"""
+    global _retry_thread_running
 
-    successful = 0
-    remaining = []
+    try:
+        endpoint = get_env('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
+        token_id = get_env('token_id', '')
+        public_key_pem = get_env('public_key', '')
+        device_id = get_env('device_id', '')
 
-    endpoint = get_env('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
-    token_id = get_env('token_id', '')
-    public_key_pem = get_env('public_key', '')
-    device_id = get_env('device_id', '')
+        while True:
+            queue = load_queue()
+            if not queue:
+                logger.info("Queue empty, retry thread exiting")
+                break
 
-    for item in queue:
-        # Check if data is too old (backdate limit 7 days)
-        current_ts = int(time.time() * 1000)
-        if 'aligned_ts' in item and (current_ts - item['aligned_ts']) > 7 * 24 * 60 * 60 * 1000:
-            logger.info(f"Skipping old queued data from {item['timestamp']}")
-            continue
+            item = queue[0]  # Process first item
+            current_ts = int(time.time() * 1000)
 
-        try:
-            # Regenerate signature with current time
-            signature = generate_signature(token_id, public_key_pem)
+            # Check if data is too old (backdate limit 7 days)
+            if 'aligned_ts' in item and (current_ts - item['aligned_ts']) > 7 * 24 * 60 * 60 * 1000:
+                logger.info(f"Removing old queued data from {item['timestamp']}")
+                queue.pop(0)
+                save_queue(queue[-100:])
+                continue
 
-            headers = {
-                "Content-Type": "text/plain",
-                "X-Device-Id": device_id,
-                "signature": signature
-            }
+            try:
+                # Regenerate signature with current time
+                signature = generate_signature(token_id, public_key_pem)
 
-            response = requests.post(endpoint, data=item['encrypted_payload'],
-                                     headers=headers, timeout=20)
-            logger.info(f"Retry send status: {response.status_code} - {response.text}")
+                headers = {
+                    "Content-Type": "text/plain",
+                    "X-Device-Id": device_id,
+                    "signature": signature
+                }
 
-            success = False
-            if response.status_code == 200:
-                try:
-                    data = json.loads(response.text.strip())
-                    success = data.get('msg') == 'success' and data.get('status') == 1
-                except json.JSONDecodeError:
-                    pass
+                response = requests.post(endpoint, data=item['encrypted_payload'],
+                                         headers=headers, timeout=20)
+                logger.info(f"Retry send status: {response.status_code} - {response.text}")
 
-            if success:
-                successful += 1
-                logger.info(f"Successfully sent queued data from {item['timestamp']}")
-            else:
-                remaining.append(item)
+                # Remove from queue if 200 (even with wrong response - data error won't fix itself)
+                if response.status_code == 200:
+                    queue.pop(0)
+                    try:
+                        data = json.loads(response.text.strip())
+                        if data.get('msg') == 'success' and data.get('status') == 1:
+                            logger.info(f"Successfully sent queued data from {item['timestamp']}")
+                        else:
+                            logger.warning(f"Got 200 but wrong response for queued data - removing from queue (data error): {response.text}")
+                    except json.JSONDecodeError:
+                        logger.warning(f"Got 200 but invalid JSON for queued data - removing from queue (data error)")
 
-        except Exception as e:
-            logger.error(f"Retry failed: {e}")
-            remaining.append(item)
+                    save_queue(queue[-100:])
+                    continue  # Try next item
 
-    # Keep only last 100 failed items to prevent unbounded growth
-    save_queue(remaining[-100:])
-    return successful
+                else:
+                    # Non-200 response (4xx/5xx) - stop retrying, exit thread
+                    logger.error(f"Retry got {response.status_code} error - stopping retry thread")
+                    break
+
+            except Exception as e:
+                # Network error or exception - stop retrying, exit thread
+                logger.error(f"Retry failed with exception: {e} - stopping retry thread")
+                break
+
+    finally:
+        with _retry_thread_lock:
+            _retry_thread_running = False
+        logger.info("Retry thread stopped")
+
+
+def retry_failed_transmissions():
+    """Start background thread to retry queued failed transmissions"""
+    global _retry_thread_running
+
+    with _retry_thread_lock:
+        if _retry_thread_running:
+            logger.info("Retry thread already running, skipping")
+            return
+
+        queue = load_queue()
+        if not queue:
+            logger.info("Queue empty, no retry needed")
+            return
+
+        logger.info(f"Starting retry thread for {len(queue)} queued items")
+        _retry_thread_running = True
+
+        thread = threading.Thread(target=_retry_queue_worker, daemon=True)
+        thread.start()

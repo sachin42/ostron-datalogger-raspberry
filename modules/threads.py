@@ -10,8 +10,7 @@ from .payload import build_plain_payload
 from .network import (
     send_to_server,
     fetch_sensor_data,
-    send_error_to_endpoint,
-    get_public_ip
+    send_error_to_endpoint
 )
 from .queue import load_queue, save_queue, retry_failed_transmissions
 from .utils import get_aligned_timestamp_ms
@@ -49,7 +48,7 @@ def logger_thread():
     interval_seconds = alignment_minutes * 60
 
     if dev_mode:
-        logger.info(" DEV_MODE enabled - using 1-minute intervals")
+        logger.info("DEV_MODE enabled - using 1-minute intervals")
     else:
         logger.info("Production mode - using 15-minute intervals")
 

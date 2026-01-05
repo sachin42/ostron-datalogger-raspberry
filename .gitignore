@@ -23,8 +23,3 @@ __pycache__/
 
 # Claude cache
 .claude/
-
-# Old config files (deprecated)
-config.json
-config.json.backup
-config.lock
