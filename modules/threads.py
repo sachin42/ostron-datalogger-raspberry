@@ -95,7 +95,7 @@ def logger_thread():
                     logger.info(f"Fetched sensors: {sensors}")
 
                     # Send data (always with aligned timestamps and 'U' flag)
-                    success, status_code, text = send_to_server(sensors)
+                    success, status_code, text, should_queue = send_to_server(sensors)
 
                     status.increment_sends()
 
@@ -110,25 +110,29 @@ def logger_thread():
                         status.increment_failed()
                         status.set_error(f"Status {status_code}: {text}")
 
-                        # Send error after 3 failed attempts
-                        send_error_to_endpoint("SEND_FAILED", status.last_error)
+                        # Send error to endpoint once per loop (15 minutes)
+                        send_error_to_endpoint("SEND_FAILED", status.last_error,
+                                               {'status_code': status_code, 'response': text})
 
-                        # Queue encrypted payload for retry
-                        device_id = get_env('device_id', '')
-                        station_id = get_env('station_id', '')
-                        token_id = get_env('token_id', '')
+                        # Queue encrypted payload for retry only if should_queue is True
+                        if should_queue:
+                            device_id = get_env('device_id', '')
+                            station_id = get_env('station_id', '')
+                            token_id = get_env('token_id', '')
 
-                        plain_json = build_plain_payload(sensors, device_id, station_id)
-                        encrypted_payload = encrypt_payload(plain_json, token_id)
-                        aligned_ts = get_aligned_timestamp_ms()
-                        queue = load_queue()
-                        queue.append({
-                            'encrypted_payload': encrypted_payload,
-                            'timestamp': datetime.now(IST).isoformat(),
-                            'aligned_ts': aligned_ts
-                        })
-                        save_queue(queue[-100:])  # Keep last 100
-                        logger.error(f"Failed to send data: {text}")
+                            plain_json = build_plain_payload(sensors, device_id, station_id)
+                            encrypted_payload = encrypt_payload(plain_json, token_id)
+                            aligned_ts = get_aligned_timestamp_ms()
+                            queue = load_queue()
+                            queue.append({
+                                'encrypted_payload': encrypted_payload,
+                                'timestamp': datetime.now(IST).isoformat(),
+                                'aligned_ts': aligned_ts
+                            })
+                            save_queue(queue[-100:])  # Keep last 100
+                            logger.info(f"Queued failed transmission for retry")
+                        else:
+                            logger.error(f"Data error - not queuing: {text}")
 
             time.sleep(5)
 

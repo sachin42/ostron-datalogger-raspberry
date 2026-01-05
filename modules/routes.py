@@ -64,12 +64,13 @@ def register_routes(app, auth):
         if not sensors:
             return jsonify({"success": False, "error": "No sensor data fetched"})
 
-        success, status_code, text = send_to_server(sensors)
+        success, status_code, text, should_queue = send_to_server(sensors)
 
         return jsonify({
             "success": success,
             "status": status_code,
             "response": text,
+            "should_queue": should_queue,
             "sensors": sensors
         })
 

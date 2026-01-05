@@ -190,8 +190,15 @@ Use [test_server.py](test_server.py) to verify encryption/decryption locally:
 - **No File Locking**: Removed - .env is read-only, sensors.json has minimal contention
 - **No Config Reloading**: Environment variables loaded once at startup
 - **In-Memory Status**: Status tracking doesn't write to disk, improving performance
-- **Retry Logic**: 3 attempts with exponential backoff (1s, 2s, 4s) for server errors (5xx)
-- **No Retry**: Client errors (4xx) are not retried
+- **Retry Logic**:
+  - **Server errors (5xx)**: 3 attempts with exponential backoff (1s, 2s, 4s), then queued if all fail
+  - **Client errors (4xx)**: No retry, immediately queued for later retry
+  - **200 OK with wrong response**: No retry, NOT queued (data error)
+- **Error Reporting**: Sent once per 15-minute loop, not after every retry attempt
+- **Queue Strategy**:
+  - 4xx errors → queued (client/request error)
+  - 5xx errors → queued after retries fail (server error)
+  - 200 with wrong response → NOT queued (data validation error)
 - **Signature Timestamp**: Uses format `%Y-%m-%d %H:%M:%S.%f` (milliseconds) for RSA signature
 - **Logging**: Rotating file handler (10MB max, 5 backups) at [datalogger.log](datalogger.log)
 - **Web Auth**: HTTP Basic Auth (admin/admin123 by default)

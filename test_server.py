@@ -53,13 +53,12 @@ def receive_data():
             data = {"error": "decryption_failed"}
 
         # For testing, always return success
-        response = {"msg": "success", "status": 1}
-        return jsonify(response), 200
+        response = {"msg":"success","status": 1}
+        return response, 200
 
     except Exception as e:
         print(f"Error processing request: {e}")
-        return jsonify({"msg": "error", "status": 0}), 400
-
+        return {"msg": "error", "status": 0}, 400
 if __name__ == '__main__':
     print("Starting test server on http://localhost:5000")
     print("Use this as endpoint: http://localhost:5000/v1.0/industry/data")

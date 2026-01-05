@@ -55,14 +55,21 @@ def send_error_to_endpoint(tag: str, error_msg: str, response_data: dict = None)
         return False
 
 
-def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) -> Tuple[bool, int, str]:
-    """Send data to server with retry logic"""
+def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) -> Tuple[bool, int, str, bool]:
+    """
+    Send data to server with retry logic
+
+    Returns:
+        Tuple[bool, int, str, bool]: (success, status_code, response_text, should_queue)
+        - should_queue = True if data should be queued for retry (4xx or 5xx after retries)
+        - should_queue = False if it's a data error (200 with wrong response)
+    """
     if not endpoint:
         endpoint = get_env('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
 
     if not sensors:
         logger.info("No sensor data to send")
-        return False, 0, "No data"
+        return False, 0, "No data", False
 
     device_id = get_env('device_id', '')
     station_id = get_env('station_id', '')
@@ -102,16 +109,19 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
                     pass
 
             if success:
-                return True, response.status_code, response.text
+                return True, response.status_code, response.text, False
 
-            # Don't retry on client errors (4xx)
+            # 200 but wrong response - data error, don't queue, don't retry
+            if response.status_code == 200:
+                logger.error(f"Data error - 200 OK but wrong response: {response.text}")
+                return False, response.status_code, response.text, False
+
+            # Don't retry on client errors (4xx), but DO queue
             if 400 <= response.status_code < 500:
-                error_msg = response.text
-                send_error_to_endpoint("SERVER_ERROR", error_msg,
-                                       {'response': response.text, 'status_code': response.status_code})
-                return False, response.status_code, response.text
+                logger.error(f"Client error {response.status_code}: {response.text}")
+                return False, response.status_code, response.text, True
 
-            # Exponential backoff for retries
+            # Server errors (5xx) or other - retry with exponential backoff
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)
 
@@ -120,16 +130,10 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)
 
-    # All retries failed, send error report
-    if last_response:
-        error_msg = last_response
-        send_error_to_endpoint("SERVER_ERROR", error_msg,
-                               {'response': last_response, 'status_code': last_status_code})
-    else:
-        error_msg = "Max retries exceeded - No response from server"
-        send_error_to_endpoint("SERVER_ERROR", error_msg)
-
-    return False, last_status_code, last_response if last_response else "Max retries exceeded"
+    # All retries failed - queue for later
+    error_msg = last_response if last_response else "Max retries exceeded - No response from server"
+    logger.error(f"All retries failed: {error_msg}")
+    return False, last_status_code, error_msg, True
 
 
 def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
