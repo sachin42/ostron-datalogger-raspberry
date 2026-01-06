@@ -151,7 +151,7 @@ def fetch_modbus_rtu_sensors(rtu_device: dict, sensors_config: list) -> Dict[str
                             'value': str(value),
                             'unit': sensor.get('unit', '')
                         }
-                        logger.info(f"Modbus RTU sensor {param_name} (slave {sensor['slave_id']}): {value} {sensor.get('unit', '')}")
+                        logger.debug(f"Modbus RTU sensor {param_name} (slave {sensor['slave_id']}): {value} {sensor.get('unit', '')}")
                     else:
                         logger.error(f"Failed to read Modbus RTU sensor {param_name} from slave {sensor.get('slave_id')}")
 

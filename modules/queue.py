@@ -31,7 +31,7 @@ def save_queue(queue: List[dict]):
     """Save failed transmission queue"""
     try:
         with open(QUEUE_FILE, 'w') as f:
-            logger.info(f"Saving queue with {len(queue)} items")
+            logger.debug(f"Saving queue with {len(queue)} items")
             json.dump(queue, f, indent=2)
     except Exception as e:
         logger.error(f"Error saving queue: {e}")
@@ -50,7 +50,7 @@ def _retry_queue_worker():
         while True:
             queue = load_queue()
             if not queue:
-                logger.info("Queue empty, retry thread exiting")
+                logger.debug("Queue empty, retry thread exiting")
                 break
 
             item = queue[0]  # Process first item
@@ -58,7 +58,7 @@ def _retry_queue_worker():
 
             # Check if data is too old (backdate limit 7 days)
             if 'aligned_ts' in item and (current_ts - item['aligned_ts']) > 7 * 24 * 60 * 60 * 1000:
-                logger.info(f"Removing old queued data from {item['timestamp']}")
+                logger.warning(f"Removing old queued data from {item['timestamp']}")
                 queue.pop(0)
                 save_queue(queue[-100:])
                 continue
@@ -75,7 +75,7 @@ def _retry_queue_worker():
 
                 response = requests.post(endpoint, data=item['encrypted_payload'],
                                          headers=headers, timeout=20)
-                logger.info(f"Retry send status: {response.status_code} - {response.text}")
+                logger.debug(f"Retry send status: {response.status_code} - {response.text}")
 
                 # Remove from queue if 200 (even with wrong response - data error won't fix itself)
                 if response.status_code == 200:
@@ -105,7 +105,7 @@ def _retry_queue_worker():
     finally:
         with _retry_thread_lock:
             _retry_thread_running = False
-        logger.info("Retry thread stopped")
+        logger.debug("Retry thread stopped")
 
 
 def retry_failed_transmissions():
@@ -114,15 +114,15 @@ def retry_failed_transmissions():
 
     with _retry_thread_lock:
         if _retry_thread_running:
-            logger.info("Retry thread already running, skipping")
+            logger.debug("Retry thread already running, skipping")
             return
 
         queue = load_queue()
         if not queue:
-            logger.info("Queue empty, no retry needed")
+            logger.debug("Queue empty, no retry needed")
             return
 
-        logger.info(f"Starting retry thread for {len(queue)} queued items")
+        logger.debug(f"Starting retry thread for {len(queue)} queued items")
         _retry_thread_running = True
 
         thread = threading.Thread(target=_retry_queue_worker, daemon=True)

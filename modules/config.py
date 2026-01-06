@@ -32,7 +32,7 @@ def load_env_config() -> dict:
         'error_session_cookie': os.getenv('ERROR_SESSION_COOKIE', 'e1j7mnclaennlc5vqfr8ms2iiv1ng2i7')
     }
 
-    logger.info("Environment configuration loaded from .env")
+    logger.debug("Environment configuration loaded from .env")
     return _env_config
 
 

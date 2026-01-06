@@ -28,7 +28,7 @@ def heartbeat_thread():
             if sensors_config.get('server_running', False):
                 heartbeat_msg = f"System Running"
 
-                logger.info(f"Sending heartbeat: {heartbeat_msg}")
+                logger.debug(f"Sending heartbeat: {heartbeat_msg}")
                 send_error_to_endpoint("HEARTBEAT", heartbeat_msg)
 
             # Wait 30 minutes before next heartbeat
@@ -99,7 +99,7 @@ def logger_thread():
                     if len(sensors) == expected_count:
                         status.update_fetch_success()
 
-                    logger.info(f"Fetched sensors: {sensors}")
+                    logger.debug(f"Fetched sensors: {sensors}")
 
                     # Send data (always with aligned timestamps and 'U' flag)
                     success, status_code, text, should_queue = send_to_server(sensors)

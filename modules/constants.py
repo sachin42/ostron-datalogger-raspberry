@@ -22,5 +22,5 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO if dev_mode else logging.WARNING)
+logger.setLevel(logging.DEBUG if dev_mode else logging.INFO)
 logger.addHandler(handler)

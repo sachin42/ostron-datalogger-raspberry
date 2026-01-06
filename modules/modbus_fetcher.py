@@ -287,7 +287,7 @@ def fetch_modbus_sensors(sensors_config: list) -> Dict[str, Dict[str, Any]]:
                     'value': str(value),
                     'unit': sensor.get('unit', '')
                 }
-                logger.info(f"Modbus sensor {param_name}: {value} {sensor.get('unit', '')}")
+                logger.debug(f"Modbus sensor {param_name}: {value} {sensor.get('unit', '')}")
             else:
                 logger.error(f"Failed to read Modbus sensor {param_name} from {sensor.get('ip')}")
 

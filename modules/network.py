@@ -42,10 +42,10 @@ def send_error_to_endpoint(tag: str, error_msg: str) -> bool:
         if tag != "HEARTBEAT":
             logger.error(f"Sending error to endpoint: {error_message}")
         else:
-            logger.info(f"Sending heartbeat to endpoint: {error_message}")
+            logger.debug(f"Sending heartbeat to endpoint: {error_message}")
 
         response = requests.post(endpoint, headers=headers, data=data, timeout=10)
-        logger.info(f"Endpoint response: {response.status_code} - {response.text}")
+        logger.debug(f"Endpoint response: {response.status_code} - {response.text}")
 
         return response.status_code == 200
 
@@ -67,7 +67,7 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
         endpoint = get_env('endpoint', "https://cems.cpcb.gov.in/v1.0/industry/data")
 
     if not sensors:
-        logger.info("No sensor data to send")
+        logger.warning("No sensor data to send")
         return False, 0, "No data", False
 
     device_id = get_env('device_id', '')
@@ -228,7 +228,7 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
             if datapage_url:
                 iq_data = fetch_sensor_data(datapage_url, iq_web_sensors)
                 all_sensors.update(iq_data)
-                logger.info(f"Fetched {len(iq_data)} IQ Web Connect sensors")
+                logger.debug(f"Fetched {len(iq_data)} IQ Web Connect sensors")
             else:
                 logger.warning("DATAPAGE_URL not configured, skipping IQ Web Connect sensors")
 
@@ -236,7 +236,7 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
         if modbus_tcp_sensors:
             modbus_data = fetch_modbus_sensors(modbus_tcp_sensors)
             all_sensors.update(modbus_data)
-            logger.info(f"Fetched {len(modbus_data)} Modbus TCP sensors")
+            logger.debug(f"Fetched {len(modbus_data)} Modbus TCP sensors")
 
         # Fetch Modbus RTU sensors
         if modbus_rtu_sensors:
@@ -245,11 +245,11 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
             if rtu_device:
                 rtu_data = fetch_modbus_rtu_sensors(rtu_device, modbus_rtu_sensors)
                 all_sensors.update(rtu_data)
-                logger.info(f"Fetched {len(rtu_data)} Modbus RTU sensors")
+                logger.debug(f"Fetched {len(rtu_data)} Modbus RTU sensors")
             else:
                 logger.warning("RTU device not configured, skipping Modbus RTU sensors")
 
-        logger.info(f"Total sensors fetched: {len(all_sensors)}")
+        logger.debug(f"Total sensors fetched: {len(all_sensors)}")
         return all_sensors
 
     except Exception as e:
