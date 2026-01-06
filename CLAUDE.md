@@ -61,13 +61,21 @@ sudo systemctl stop datalogger
 
 ### Threading Model
 
-The application runs three concurrent threads:
+The application uses a multi-threaded architecture:
+
 1. **Main Thread**: Flask web server (port 9999) for admin interface
 2. **Logger Thread** ([modules/threads.py:42](modules/threads.py#L42)): Background data collection and transmission
    - Production mode (DEV_MODE=false): 15-minute aligned intervals (XX:00, XX:15, XX:30, XX:45)
    - Development mode (DEV_MODE=true): 1-minute aligned intervals (XX:00, XX:01, XX:02, ...)
    - Set DEV_MODE in .env file to control behavior
 3. **Heartbeat Thread** ([modules/threads.py:20](modules/threads.py#L20)): IP reporting every 30 minutes
+4. **Retry Queue Thread** ([modules/queue.py:40](modules/queue.py#L40)): Dynamic background worker (spawned as needed)
+   - Triggered automatically after successful send
+   - Processes failed queue in FIFO order
+   - Stops on first error (4xx/5xx or network failure)
+   - Removes items that get 200 response (even with wrong data)
+   - Auto-exits when queue is empty or on error
+   - Only one instance runs at a time (thread-safe)
 
 ### Module Structure
 
@@ -162,7 +170,13 @@ See [send_error_to_endpoint()](modules/network.py#L25) for implementation.
 Failed transmissions are stored in [failed_queue.json](failed_queue.json):
 - Max 100 items kept (oldest discarded)
 - 7-day backdate limit enforced
-- Retried after successful send ([retry_failed_transmissions()](modules/queue.py#L34))
+- **Background Retry Thread**: Triggered after successful send ([retry_failed_transmissions()](modules/queue.py#L111))
+  - Runs in separate daemon thread to avoid blocking logger thread
+  - Processes queue items one by one (FIFO order)
+  - **Stops on error**: Exits if any retry gets 4xx/5xx or network error
+  - **Removes on 200**: Removes items that get HTTP 200 response (even with wrong data - data errors won't fix themselves)
+  - **Auto-exits**: Thread exits when queue is empty
+  - Only one retry thread runs at a time (thread-safe with lock)
 - Signature regenerated for each retry attempt
 
 ### Timestamp Rules

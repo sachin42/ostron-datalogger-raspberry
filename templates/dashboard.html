@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Dashboard</h2>
+    <div class="header-actions">
+        <button onclick="refreshData()" class="btn btn-primary">🔄 Refresh</button>
+        <button onclick="testFetch()" class="btn btn-secondary">🧪 Test Fetch</button>
+        <button onclick="testSend()" class="btn btn-secondary">📤 Test Send</button>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">📡</div>
+        <div class="stat-content">
+            <div class="stat-label">Server Status</div>
+            <div class="stat-value" id="server-status">
+                {% if config.server_running %}
+                    <span class="badge badge-success">Running</span>
+                {% else %}
+                    <span class="badge badge-danger">Stopped</span>
+                {% endif %}
+            </div>
+        </div>
+        <button onclick="toggleServer()" class="btn btn-sm" id="toggle-server-btn">
+            {% if config.server_running %}Stop{% else %}Start{% endif %}
+        </button>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-content">
+            <div class="stat-label">Total Sends</div>
+            <div class="stat-value">{{ status.total_sends }}</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">❌</div>
+        <div class="stat-content">
+            <div class="stat-label">Failed Sends</div>
+            <div class="stat-value">{{ status.failed_sends }}</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">🕐</div>
+        <div class="stat-content">
+            <div class="stat-label">Last Success</div>
+            <div class="stat-value" style="font-size: 0.9em;">
+                {{ status.last_send_success or 'Never' }}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if status.last_error %}
+<div class="alert alert-error">
+    <strong>Last Error:</strong> {{ status.last_error }}
+</div>
+{% endif %}
+
+<div class="section">
+    <h3>Active Sensors</h3>
+    <div class="sensors-grid" id="sensors-grid">
+        {% if sensors %}
+            {% for sensor in sensors %}
+            <div class="sensor-card" data-sensor-id="{{ sensor.sensor_id }}">
+                <div class="sensor-header">
+                    <div class="sensor-type-badge">IQ Web Connect</div>
+                    <div class="sensor-id">{{ sensor.sensor_id }}</div>
+                </div>
+                <div class="sensor-body">
+                    <div class="sensor-param">{{ sensor.param_name|upper }}</div>
+                    <div class="sensor-value" id="value-{{ sensor.sensor_id }}">
+                        <span class="value-num">--</span>
+                        <span class="value-unit">{{ sensor.unit }}</span>
+                    </div>
+                </div>
+                <div class="sensor-footer">
+                    <span class="sensor-status" id="status-{{ sensor.sensor_id }}">
+                        <span class="status-dot">●</span> Waiting...
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>No sensors configured</p>
+                <a href="{{ url_for('sensors_page') }}" class="btn btn-primary">Add Sensors</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Test Result Modal -->
+<div id="resultModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Test Result</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <!-- Result content will be inserted here -->
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeModal()" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh sensor data every 10 seconds
+setInterval(refreshData, 10000);
+
+// Initial load
+refreshData();
+
+function refreshData() {
+    fetch('/api/sensor_data')
+        .then(r => r.json())
+        .then(data => {
+            if (data.sensors) {
+                Object.keys(data.sensors).forEach(param => {
+                    const sensorData = data.sensors[param];
+                    const sensorId = findSensorIdByParam(param);
+                    if (sensorId) {
+                        document.getElementById(`value-${sensorId}`).innerHTML =
+                            `<span class="value-num">${sensorData.value}</span>
+                             <span class="value-unit">${sensorData.unit}</span>`;
+                        document.getElementById(`status-${sensorId}`).innerHTML =
+                            '<span class="status-dot status-success">●</span> Updated';
+                    }
+                });
+            }
+        })
+        .catch(err => console.error('Refresh failed:', err));
+}
+
+function findSensorIdByParam(param) {
+    const cards = document.querySelectorAll('.sensor-card');
+    for (let card of cards) {
+        const paramEl = card.querySelector('.sensor-param');
+        if (paramEl && paramEl.textContent.toLowerCase() === param.toLowerCase()) {
+            return card.dataset.sensorId;
+        }
+    }
+    return null;
+}
+
+function toggleServer() {
+    fetch('/api/toggle_server', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            location.reload();
+        })
+        .catch(err => alert('Failed to toggle server: ' + err));
+}
+
+function testFetch() {
+    showModal('Testing Data Fetch', '<div class="loading">Fetching data...</div>');
+
+    fetch('/test_fetch')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                let html = '<div class="alert alert-success"><strong>✓ Fetch Successful</strong></div>';
+                html += '<div class="result-section">';
+                html += '<h4>Fetched Sensors:</h4>';
+                html += '<table class="result-table"><thead><tr><th>Parameter</th><th>Value</th><th>Unit</th></tr></thead><tbody>';
+                Object.keys(data.sensors).forEach(param => {
+                    const sensor = data.sensors[param];
+                    html += `<tr><td>${param}</td><td>${sensor.value}</td><td>${sensor.unit}</td></tr>`;
+                });
+                html += '</tbody></table></div>';
+                showModal('Test Fetch Result', html);
+            } else {
+                showModal('Test Fetch Failed',
+                    `<div class="alert alert-error"><strong>✗ Error:</strong> ${data.error}</div>`);
+            }
+        })
+        .catch(err => {
+            showModal('Test Fetch Failed',
+                `<div class="alert alert-error"><strong>✗ Network Error:</strong> ${err}</div>`);
+        });
+}
+
+function testSend() {
+    showModal('Testing Data Send', '<div class="loading">Sending data...</div>');
+
+    fetch('/test_send')
+        .then(r => r.json())
+        .then(data => {
+            let html = '';
+            if (data.success) {
+                html += '<div class="alert alert-success"><strong>✓ Send Successful</strong></div>';
+            } else {
+                html += '<div class="alert alert-error"><strong>✗ Send Failed</strong></div>';
+            }
+
+            html += '<div class="result-section">';
+            html += `<p><strong>Status Code:</strong> ${data.status}</p>`;
+            html += `<p><strong>Response:</strong> <code>${JSON.stringify(data.response)}</code></p>`;
+            html += `<p><strong>Should Queue:</strong> ${data.should_queue ? 'Yes' : 'No'}</p>`;
+            html += '</div>';
+
+            if (data.sensors) {
+                html += '<div class="result-section"><h4>Sent Data:</h4>';
+                html += '<table class="result-table"><thead><tr><th>Parameter</th><th>Value</th><th>Unit</th></tr></thead><tbody>';
+                Object.keys(data.sensors).forEach(param => {
+                    const sensor = data.sensors[param];
+                    html += `<tr><td>${param}</td><td>${sensor.value}</td><td>${sensor.unit}</td></tr>`;
+                });
+                html += '</tbody></table></div>';
+            }
+
+            showModal('Test Send Result', html);
+        })
+        .catch(err => {
+            showModal('Test Send Failed',
+                `<div class="alert alert-error"><strong>✗ Network Error:</strong> ${err}</div>`);
+        });
+}
+
+function showModal(title, body) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').innerHTML = body;
+    document.getElementById('resultModal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('resultModal').style.display = 'none';
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+    const modal = document.getElementById('resultModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+{% endblock %}

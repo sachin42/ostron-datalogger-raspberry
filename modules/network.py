@@ -21,6 +21,7 @@ def get_public_ip() -> str:
         logger.warning(f"Failed to get public IP: {e}")
         return "Unknown"
 
+
 def send_error_to_endpoint(tag: str, error_msg: str) -> bool:
     """Send error to HTTP endpoint with context"""
     try:
