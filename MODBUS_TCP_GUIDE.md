@@ -292,17 +292,36 @@ This shows different sensor types (pH, conductivity, turbidity) on the same RS48
 
 ## Testing Modbus Sensors
 
-### 1. Web UI
+### 1. Web UI Testing
 
+#### Testing Modbus TCP:
 1. Navigate to **Sensors** page
 2. Click **Modbus TCP** tab
 3. Click **+ Add Modbus Sensor**
-4. Fill in the configuration fields
+4. Fill in the configuration fields (IP, Slave ID, Register settings, etc.)
 5. Click **Save Configuration**
-6. Go to **Dashboard**
-7. Click **Test Fetch** to verify connection
+6. Go to **Dashboard** to see real-time values
+7. Click **Test Fetch** to manually trigger data fetch
+
+#### Testing Modbus RTU:
+1. Navigate to **Sensors** page
+2. Click **Modbus RTU (RS485)** tab
+3. Configure the serial device (Port, Baud Rate, Parity, etc.)
+4. Click **+ Add RTU Sensor** for each sensor on the bus
+5. Fill in sensor configuration (Slave ID, Register settings, etc.)
+6. Click **Save Configuration**
+7. Go to **Dashboard** to see real-time values
+8. Click **Test Fetch** to manually trigger data fetch
+
+**Important:** For RTU sensors, ensure:
+- Serial port has correct permissions (Linux: `sudo chmod 666 /dev/ttyUSB0`)
+- No other applications are using the serial port
+- RS485 adapter is properly connected
+- Each sensor has a unique slave ID
 
 ### 2. Using Python (Manual Test)
+
+#### Modbus TCP Test
 
 ```python
 from pymodbus.client import ModbusTcpClient
@@ -316,7 +335,31 @@ if client.connect():
     client.close()
 ```
 
+#### Modbus RTU Test
+
+```python
+from pymodbus.client import ModbusSerialClient
+
+client = ModbusSerialClient(
+    port='COM7',  # or '/dev/ttyUSB0' on Linux
+    baudrate=9600,
+    parity='N',
+    stopbits=1,
+    bytesize=8,
+    timeout=3
+)
+
+if client.connect():
+    # Read holding register 0 from slave 1
+    result = client.read_holding_registers(0, 1, slave=1)
+    if not result.isError():
+        print(f"Register value: {result.registers[0]}")
+    client.close()
+```
+
 ### 3. Using modpoll (Command Line)
+
+#### Modbus TCP
 
 ```bash
 # Read 1 holding register at address 0 from slave 1
@@ -326,35 +369,124 @@ modpoll -m tcp -a 1 -r 0 -c 1 192.168.1.100
 modpoll -m tcp -a 1 -r 100 -c 2 192.168.1.100
 ```
 
+#### Modbus RTU
+
+```bash
+# Read 1 holding register at address 0 from slave 1 on COM7
+modpoll -m rtu -b 9600 -p none -a 1 -r 0 -c 1 COM7
+
+# Read 2 registers (for 32-bit value) on Linux
+modpoll -m rtu -b 9600 -p none -a 1 -r 100 -c 2 /dev/ttyUSB0
+
+# With even parity
+modpoll -m rtu -b 9600 -p even -a 1 -r 0 -c 1 COM7
+```
+
 ## Troubleshooting
 
-### Connection Issues
+### Modbus TCP Issues
+
+#### Connection Issues
 
 **Error**: "Failed to connect to Modbus device"
+
 - Check IP address and port
 - Verify device is powered on and network accessible
 - Try ping: `ping 192.168.1.100`
 - Verify firewall settings (port 502 must be open)
+- Check if device supports Modbus TCP (some only support RTU)
 
-### No Data Received
+#### No Data Received
 
 **Error**: "Modbus read error"
+
 - Verify slave ID is correct
 - Check register address (some devices use 1-based addressing)
 - Ensure register type matches device configuration
 - Try reading with modpoll tool first
+- Check device Modbus settings (enabled, correct port)
 
-### Wrong Values
+#### Wrong Values
 
 **Issue**: Values are incorrect or garbage
+
 - Check data type (16-bit vs 32-bit)
 - Try different byte/word order combinations
 - Verify register contains the expected data type
 - Check device documentation for register map
 
+### Modbus RTU Issues
+
+#### Serial Port Connection Issues
+
+**Error**: "Failed to connect to Modbus RTU device"
+
+- **Port not found**: Verify COM port or /dev/ttyUSB device exists
+  - Windows: Check Device Manager → Ports (COM & LPT)
+  - Linux: Run `ls /dev/tty*` to list available ports
+- **Permission denied** (Linux): Grant access to serial port
+  - `sudo chmod 666 /dev/ttyUSB0` (temporary)
+  - `sudo usermod -a -G dialout $USER` (permanent, logout required)
+- **Port in use**: Close other applications using the port
+  - Check if another Modbus client/scanner is running
+  - Check if serial terminal (putty, minicom) is open
+- **USB adapter not detected**: Check USB cable and adapter
+  - Try different USB port
+  - Check adapter LED indicators
+  - Verify driver installation (CH340, FTDI, etc.)
+
+#### Communication Settings Mismatch
+
+**Error**: "Modbus RTU read error" or timeout
+
+- **Baud rate mismatch**: Verify device baud rate
+  - Common: 9600, 19200, 38400
+  - Check device DIP switches or configuration menu
+- **Parity mismatch**: Check device parity setting
+  - Most common: None (N)
+  - Some devices use Even (E)
+- **Stop bits/Data bits**: Usually 8N1 (8 data, no parity, 1 stop)
+- **Timeout too short**: Increase timeout if bus is long or slow
+  - Default: 3 seconds
+  - Long cables or many devices: Try 5-10 seconds
+
+#### RTU-Specific Issues
+
+**Issue**: Some sensors work, others don't
+
+- Check slave IDs are unique and correct
+- Verify all sensors are powered and on the bus
+- Check RS485 termination resistors (120Ω on both ends)
+- Check RS485 wiring polarity (A/B or +/-)
+
+**Issue**: Intermittent communication errors
+
+- Check RS485 cable length (max 1200m without repeater)
+- Check for electromagnetic interference (EMI)
+- Verify proper grounding
+- Add or check termination resistors
+- Reduce baud rate for longer cables
+
+**Issue**: No response from any sensor
+
+- Verify RS485 adapter TX/RX LEDs blink during communication
+- Check RS485 wiring (A to A, B to B, not swapped)
+- Try manually setting slave ID on one sensor and testing
+- Use modpoll tool to verify basic connectivity
+
+#### Wrong Values on RTU
+
+Same as Modbus TCP, plus:
+
+- **Cable issues**: Check RS485 cable quality and connections
+- **Noise on bus**: Add shielded cable or twisted pair
+- **Bus loading**: Too many devices can cause signal degradation
+  - Max 32 devices per segment without repeater
+
 ### Mixed Sensor Types
 
-The datalogger can mix IQ Web Connect and Modbus TCP sensors:
+The datalogger can mix IQ Web Connect, Modbus TCP, and Modbus RTU sensors:
+
 ```json
 {
   "server_running": true,
@@ -376,10 +508,41 @@ The datalogger can mix IQ Web Connect and Modbus TCP sensors:
       "word_order": "big",
       "param_name": "ph",
       "unit": "pH"
+    },
+    {
+      "type": "modbus_rtu",
+      "slave_id": 2,
+      "register_type": "input",
+      "register_address": 100,
+      "data_type": "int16",
+      "byte_order": "big",
+      "param_name": "temperature",
+      "unit": "°C"
+    },
+    {
+      "type": "modbus_rtu",
+      "slave_id": 3,
+      "register_type": "holding",
+      "register_address": 5000,
+      "data_type": "float32",
+      "byte_order": "big",
+      "word_order": "big",
+      "param_name": "flow_rate",
+      "unit": "m3/h"
     }
-  ]
+  ],
+  "rtu_device": {
+    "port": "COM7",
+    "baudrate": 9600,
+    "parity": "N",
+    "bytesize": 8,
+    "stopbits": 1,
+    "timeout": 3
+  }
 }
 ```
+
+**Note:** All RTU sensors share the same serial device configuration but have unique slave IDs.
 
 ## Device-Specific Notes
 

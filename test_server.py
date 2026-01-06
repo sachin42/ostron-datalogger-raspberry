@@ -430,4 +430,4 @@ if __name__ == '__main__':
     print(f"\n💡 Configure the test server behavior via the web UI")
     print("="*80 + "\n")
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
