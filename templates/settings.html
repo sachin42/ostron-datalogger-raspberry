@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Settings</h2>
+</div>
+
+<div class="alert alert-info">
+    <strong>ℹ️ Note:</strong> These settings are loaded from the .env file and are read-only.
+    To change them, edit the .env file and restart the application.
+</div>
+
+<div class="section">
+    <h3>Device Configuration</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>Token ID</label>
+            <input type="text" class="form-control" value="{{ env_config.token_id[:20] }}..." disabled>
+            <small class="form-text">AES encryption key (base64 encoded)</small>
+        </div>
+
+        <div class="setting-item">
+            <label>Device ID</label>
+            <input type="text" class="form-control" value="{{ env_config.device_id }}" disabled>
+            <small class="form-text">Unique device identifier</small>
+        </div>
+
+        <div class="setting-item">
+            <label>Station ID</label>
+            <input type="text" class="form-control" value="{{ env_config.station_id }}" disabled>
+            <small class="form-text">Station identifier for ODAMS</small>
+        </div>
+
+        <div class="setting-item">
+            <label>UID</label>
+            <input type="text" class="form-control" value="{{ env_config.uid }}" disabled>
+            <small class="form-text">Unique identifier for error reporting</small>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>Data Source</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>Data Page URL</label>
+            <input type="text" class="form-control" value="{{ env_config.datapage_url }}" disabled>
+            <small class="form-text">Source URL for sensor data (file:// or http://)</small>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>Server Endpoints</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>ODAMS Endpoint</label>
+            <input type="text" class="form-control" value="{{ env_config.endpoint }}" disabled>
+            <small class="form-text">CPCB/ODAMS data submission endpoint</small>
+        </div>
+
+        <div class="setting-item">
+            <label>Error Reporting Endpoint</label>
+            <input type="text" class="form-control" value="{{ env_config.error_endpoint_url }}" disabled>
+            <small class="form-text">Endpoint for error and heartbeat messages</small>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>Operational Mode</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>Development Mode</label>
+            <div class="mode-indicator">
+                {% if env_config.dev_mode %}
+                    <span class="badge badge-warning">DEV MODE</span>
+                    <p>1-minute intervals for faster testing</p>
+                {% else %}
+                    <span class="badge badge-success">PRODUCTION</span>
+                    <p>15-minute intervals (ODAMS standard)</p>
+                {% endif %}
+            </div>
+            <small class="form-text">Set DEV_MODE=true/false in .env file</small>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>Security</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>Public Key</label>
+            <textarea class="form-control" rows="8" disabled>{{ env_config.public_key.replace('\\n', '\n') }}</textarea>
+            <small class="form-text">RSA public key for signature generation</small>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <strong>⚠️ Important:</strong> After modifying the .env file, you must restart the datalogger application
+    for changes to take effect. Configuration is loaded once at startup.
+</div>
+
+{% endblock %}

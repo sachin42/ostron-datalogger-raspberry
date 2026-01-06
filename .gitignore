@@ -1,10 +1,25 @@
-config.json.backup
-config.json
+# Environment variables (contains secrets)
+.env
+
+# Sensor configuration (may contain site-specific data)
+sensors.json
+
+# Log files
 datalogger.log
 *.log
-config.lock
+
+# Failed transmission queue
 failed_queue.json
+
+# Documentation
 ODAMS_API_Document.pdf
 AGENTS.md
+
+# Python cache
 __pycache__/
+
+# Virtual environment
 .venv/
+
+# Claude cache
+.claude/

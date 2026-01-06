@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Sensors Configuration{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Sensors Configuration</h2>
+    <div class="header-actions">
+        <button onclick="addSensor()" class="btn btn-primary">+ Add Sensor</button>
+    </div>
+</div>
+
+<div class="tabs">
+    <div class="tab-buttons">
+        <button class="tab-btn active" data-tab="iq-web">IQ Web Connect</button>
+        <button class="tab-btn" data-tab="modbus" disabled>Modbus TCP <span class="badge badge-info">Coming Soon</span></button>
+        <button class="tab-btn" data-tab="rs485" disabled>RS485 <span class="badge badge-info">Coming Soon</span></button>
+        <button class="tab-btn" data-tab="analog" disabled>Analog <span class="badge badge-info">Coming Soon</span></button>
+    </div>
+
+    <div class="tab-content active" id="tab-iq-web">
+        <div class="section">
+            <h3>IQ Web Connect Sensors</h3>
+            <p class="text-muted">Fetch sensor data from IQ Web Connect HTML endpoint</p>
+
+            <div class="form-group">
+                <label>Data Source URL</label>
+                <input type="text" class="form-control" value="{{ env_config.datapage_url }}" disabled>
+                <small class="form-text">Configure in .env file: DATAPAGE_URL</small>
+            </div>
+
+            <div id="sensors-list">
+                {% if sensors %}
+                    {% for sensor in sensors %}
+                    <div class="sensor-config-card" data-index="{{ loop.index0 }}">
+                        <div class="sensor-config-header">
+                            <h4>Sensor {{ loop.index }}</h4>
+                            <button onclick="removeSensor({{ loop.index0 }})" class="btn btn-danger btn-sm">Remove</button>
+                        </div>
+                        <div class="sensor-config-body">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Sensor ID <span class="required">*</span></label>
+                                    <input type="text" class="form-control" name="sensor_id"
+                                           value="{{ sensor.sensor_id }}" placeholder="e.g., S01">
+                                    <small class="form-text">ID from HTML (SID1, SID2, etc.)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Parameter Name <span class="required">*</span></label>
+                                    <input type="text" class="form-control" name="param_name"
+                                           value="{{ sensor.param_name }}" placeholder="e.g., bod">
+                                    <small class="form-text">Parameter to send to ODAMS</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Unit</label>
+                                    <input type="text" class="form-control" name="unit"
+                                           value="{{ sensor.unit }}" placeholder="e.g., mg/L">
+                                    <small class="form-text">Will be fetched from HTML if empty</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No sensors configured</p>
+                        <button onclick="addSensor()" class="btn btn-primary">Add Your First Sensor</button>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-actions">
+                <button onclick="saveSensors()" class="btn btn-success">💾 Save Configuration</button>
+                <button onclick="location.reload()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="tab-modbus">
+        <div class="empty-state">
+            <h3>Modbus TCP Support</h3>
+            <p>This feature is coming soon. It will support reading sensor data from Modbus TCP devices.</p>
+        </div>
+    </div>
+
+    <div class="tab-content" id="tab-rs485">
+        <div class="empty-state">
+            <h3>RS485 Support</h3>
+            <p>This feature is coming soon. It will support reading sensor data from RS485 devices.</p>
+        </div>
+    </div>
+
+    <div class="tab-content" id="tab-analog">
+        <div class="empty-state">
+            <h3>Analog Input Support</h3>
+            <p>This feature is coming soon. It will support reading sensor data from analog inputs.</p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        if (this.disabled) return;
+
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+        this.classList.add('active');
+        document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+    });
+});
+
+function addSensor() {
+    const list = document.getElementById('sensors-list');
+    const index = list.querySelectorAll('.sensor-config-card').length;
+
+    const card = document.createElement('div');
+    card.className = 'sensor-config-card';
+    card.dataset.index = index;
+    card.innerHTML = `
+        <div class="sensor-config-header">
+            <h4>Sensor ${index + 1}</h4>
+            <button onclick="removeSensor(${index})" class="btn btn-danger btn-sm">Remove</button>
+        </div>
+        <div class="sensor-config-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Sensor ID <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="sensor_id" placeholder="e.g., S01">
+                    <small class="form-text">ID from HTML (SID1, SID2, etc.)</small>
+                </div>
+                <div class="form-group">
+                    <label>Parameter Name <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="param_name" placeholder="e.g., bod">
+                    <small class="form-text">Parameter to send to ODAMS</small>
+                </div>
+                <div class="form-group">
+                    <label>Unit</label>
+                    <input type="text" class="form-control" name="unit" placeholder="e.g., mg/L">
+                    <small class="form-text">Will be fetched from HTML if empty</small>
+                </div>
+            </div>
+        </div>
+    `;
+
+    list.appendChild(card);
+}
+
+function removeSensor(index) {
+    const card = document.querySelector(`.sensor-config-card[data-index="${index}"]`);
+    if (card && confirm('Are you sure you want to remove this sensor?')) {
+        card.remove();
+    }
+}
+
+function saveSensors() {
+    const cards = document.querySelectorAll('.sensor-config-card');
+    const sensors = [];
+
+    cards.forEach(card => {
+        const sensor_id = card.querySelector('[name="sensor_id"]').value.trim();
+        const param_name = card.querySelector('[name="param_name"]').value.trim();
+        const unit = card.querySelector('[name="unit"]').value.trim();
+
+        if (sensor_id && param_name) {
+            sensors.push({ sensor_id, param_name, unit });
+        }
+    });
+
+    fetch('/api/save_sensors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sensors })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✓ Sensors saved successfully!');
+            location.reload();
+        } else {
+            alert('✗ Error: ' + data.error);
+        }
+    })
+    .catch(err => alert('✗ Failed to save: ' + err));
+}
+</script>
+{% endblock %}
