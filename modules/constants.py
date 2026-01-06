@@ -17,7 +17,7 @@ IST = pytz.timezone("Asia/Kolkata")
 
 # Set up rotating file handler
 handler = RotatingFileHandler('datalogger.log', maxBytes=10*1024*1024, backupCount=5)
-handler.setLevel(logging.INFO)
+handler.setLevel(logging.DEBUG if dev_mode else logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 
