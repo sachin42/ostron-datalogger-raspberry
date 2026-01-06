@@ -68,20 +68,32 @@
     <div class="sensors-grid" id="sensors-grid">
         {% if sensors %}
             {% for sensor in sensors %}
-            <div class="sensor-card" data-sensor-id="{{ sensor.sensor_id }}">
+            <div class="sensor-card" data-sensor-id="{{ sensor.get('sensor_id', sensor.get('ip', 'unknown')) }}">
                 <div class="sensor-header">
-                    <div class="sensor-type-badge">IQ Web Connect</div>
-                    <div class="sensor-id">{{ sensor.sensor_id }}</div>
+                    <div class="sensor-type-badge">
+                        {% if sensor.get('type') == 'modbus_tcp' %}
+                            Modbus TCP
+                        {% else %}
+                            IQ Web Connect
+                        {% endif %}
+                    </div>
+                    <div class="sensor-id">
+                        {% if sensor.get('type') == 'modbus_tcp' %}
+                            {{ sensor.ip }}:{{ sensor.get('slave_id') }}
+                        {% else %}
+                            {{ sensor.sensor_id }}
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="sensor-body">
                     <div class="sensor-param">{{ sensor.param_name|upper }}</div>
-                    <div class="sensor-value" id="value-{{ sensor.sensor_id }}">
+                    <div class="sensor-value" id="value-{{ sensor.param_name }}">
                         <span class="value-num">--</span>
                         <span class="value-unit">{{ sensor.unit }}</span>
                     </div>
                 </div>
                 <div class="sensor-footer">
-                    <span class="sensor-status" id="status-{{ sensor.sensor_id }}">
+                    <span class="sensor-status" id="status-{{ sensor.param_name }}">
                         <span class="status-dot">●</span> Waiting...
                     </span>
                 </div>
@@ -129,29 +141,22 @@ function refreshData() {
             if (data.sensors) {
                 Object.keys(data.sensors).forEach(param => {
                     const sensorData = data.sensors[param];
-                    const sensorId = findSensorIdByParam(param);
-                    if (sensorId) {
-                        document.getElementById(`value-${sensorId}`).innerHTML =
+                    const valueEl = document.getElementById(`value-${param}`);
+                    const statusEl = document.getElementById(`status-${param}`);
+
+                    if (valueEl) {
+                        valueEl.innerHTML =
                             `<span class="value-num">${sensorData.value}</span>
                              <span class="value-unit">${sensorData.unit}</span>`;
-                        document.getElementById(`status-${sensorId}`).innerHTML =
+                    }
+                    if (statusEl) {
+                        statusEl.innerHTML =
                             '<span class="status-dot status-success">●</span> Updated';
                     }
                 });
             }
         })
         .catch(err => console.error('Refresh failed:', err));
-}
-
-function findSensorIdByParam(param) {
-    const cards = document.querySelectorAll('.sensor-card');
-    for (let card of cards) {
-        const paramEl = card.querySelector('.sensor-param');
-        if (paramEl && paramEl.textContent.toLowerCase() === param.toLowerCase()) {
-            return card.dataset.sensorId;
-        }
-    }
-    return null;
 }
 
 function toggleServer() {

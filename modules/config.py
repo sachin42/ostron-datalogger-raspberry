@@ -84,8 +84,22 @@ def validate_sensors_config(sensors_data: dict) -> Tuple[bool, str]:
     if not isinstance(sensors_data['sensors'], list):
         return False, "'sensors' must be a list"
 
-    for sensor in sensors_data['sensors']:
-        if not all(k in sensor for k in ['sensor_id', 'param_name']):
-            return False, "Invalid sensor configuration: missing sensor_id or param_name"
+    for idx, sensor in enumerate(sensors_data['sensors']):
+        sensor_type = sensor.get('type', 'iq_web_connect')
+
+        # Validate based on sensor type
+        if sensor_type == 'iq_web_connect':
+            if not all(k in sensor for k in ['sensor_id', 'param_name']):
+                return False, f"IQ Web sensor {idx+1}: missing sensor_id or param_name"
+
+        elif sensor_type == 'modbus_tcp':
+            required_fields = ['ip', 'slave_id', 'register_type', 'register_address',
+                             'data_type', 'param_name', 'unit']
+            missing = [f for f in required_fields if f not in sensor or sensor[f] == '']
+            if missing:
+                return False, f"Modbus TCP sensor {idx+1}: missing {', '.join(missing)}"
+
+        else:
+            return False, f"Sensor {idx+1}: unknown type '{sensor_type}'"
 
     return True, "Configuration valid"

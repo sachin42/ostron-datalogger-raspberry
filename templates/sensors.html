@@ -13,11 +13,12 @@
 <div class="tabs">
     <div class="tab-buttons">
         <button class="tab-btn active" data-tab="iq-web">IQ Web Connect</button>
-        <button class="tab-btn" data-tab="modbus" disabled>Modbus TCP <span class="badge badge-info">Coming Soon</span></button>
+        <button class="tab-btn" data-tab="modbus">Modbus TCP</button>
         <button class="tab-btn" data-tab="rs485" disabled>RS485 <span class="badge badge-info">Coming Soon</span></button>
         <button class="tab-btn" data-tab="analog" disabled>Analog <span class="badge badge-info">Coming Soon</span></button>
     </div>
 
+    <!-- IQ Web Connect Tab -->
     <div class="tab-content active" id="tab-iq-web">
         <div class="section">
             <h3>IQ Web Connect Sensors</h3>
@@ -29,60 +30,151 @@
                 <small class="form-text">Configure in .env file: DATAPAGE_URL</small>
             </div>
 
-            <div id="sensors-list">
-                {% if sensors %}
-                    {% for sensor in sensors %}
-                    <div class="sensor-config-card" data-index="{{ loop.index0 }}">
-                        <div class="sensor-config-header">
-                            <h4>Sensor {{ loop.index }}</h4>
-                            <button onclick="removeSensor({{ loop.index0 }})" class="btn btn-danger btn-sm">Remove</button>
-                        </div>
-                        <div class="sensor-config-body">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Sensor ID <span class="required">*</span></label>
-                                    <input type="text" class="form-control" name="sensor_id"
-                                           value="{{ sensor.sensor_id }}" placeholder="e.g., S01">
-                                    <small class="form-text">ID from HTML (SID1, SID2, etc.)</small>
-                                </div>
-                                <div class="form-group">
-                                    <label>Parameter Name <span class="required">*</span></label>
-                                    <input type="text" class="form-control" name="param_name"
-                                           value="{{ sensor.param_name }}" placeholder="e.g., bod">
-                                    <small class="form-text">Parameter to send to ODAMS</small>
-                                </div>
-                                <div class="form-group">
-                                    <label>Unit</label>
-                                    <input type="text" class="form-control" name="unit"
-                                           value="{{ sensor.unit }}" placeholder="e.g., mg/L">
-                                    <small class="form-text">Will be fetched from HTML if empty</small>
-                                </div>
+            <div id="iq-sensors-list">
+                {% for sensor in sensors if sensor.get('type', 'iq_web_connect') == 'iq_web_connect' %}
+                <div class="sensor-config-card" data-type="iq_web_connect" data-index="{{ loop.index0 }}">
+                    <div class="sensor-config-header">
+                        <h4>IQ Web Sensor {{ loop.index }}</h4>
+                        <button onclick="removeSensor(this)" class="btn btn-danger btn-sm">Remove</button>
+                    </div>
+                    <div class="sensor-config-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Sensor ID <span class="required">*</span></label>
+                                <input type="text" class="form-control" name="sensor_id"
+                                       value="{{ sensor.sensor_id }}" placeholder="e.g., S01">
+                                <small class="form-text">ID from HTML (SID1, SID2, etc.)</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Parameter Name <span class="required">*</span></label>
+                                <input type="text" class="form-control" name="param_name"
+                                       value="{{ sensor.param_name }}" placeholder="e.g., bod">
+                                <small class="form-text">Parameter to send to ODAMS</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Unit</label>
+                                <input type="text" class="form-control" name="unit"
+                                       value="{{ sensor.unit }}" placeholder="e.g., mg/L">
+                                <small class="form-text">Will be fetched from HTML if empty</small>
                             </div>
                         </div>
                     </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">
-                        <p>No sensors configured</p>
-                        <button onclick="addSensor()" class="btn btn-primary">Add Your First Sensor</button>
-                    </div>
-                {% endif %}
+                </div>
+                {% endfor %}
             </div>
 
-            <div class="form-actions">
-                <button onclick="saveSensors()" class="btn btn-success">💾 Save Configuration</button>
-                <button onclick="location.reload()" class="btn btn-secondary">Cancel</button>
-            </div>
+            <button onclick="addIQWebSensor()" class="btn btn-secondary">+ Add IQ Web Sensor</button>
         </div>
     </div>
 
+    <!-- Modbus TCP Tab -->
     <div class="tab-content" id="tab-modbus">
-        <div class="empty-state">
-            <h3>Modbus TCP Support</h3>
-            <p>This feature is coming soon. It will support reading sensor data from Modbus TCP devices.</p>
+        <div class="section">
+            <h3>Modbus TCP Sensors</h3>
+            <p class="text-muted">Read sensor data directly from Modbus TCP devices</p>
+
+            <div id="modbus-sensors-list">
+                {% for sensor in sensors if sensor.get('type') == 'modbus_tcp' %}
+                <div class="sensor-config-card modbus-card" data-type="modbus_tcp" data-index="{{ loop.index0 }}">
+                    <div class="sensor-config-header">
+                        <h4>Modbus TCP Sensor {{ loop.index }}</h4>
+                        <button onclick="removeSensor(this)" class="btn btn-danger btn-sm">Remove</button>
+                    </div>
+                    <div class="sensor-config-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>IP Address <span class="required">*</span></label>
+                                <input type="text" class="form-control" name="ip"
+                                       value="{{ sensor.ip }}" placeholder="e.g., 192.168.1.100">
+                            </div>
+                            <div class="form-group">
+                                <label>Port</label>
+                                <input type="number" class="form-control" name="port"
+                                       value="{{ sensor.get('port', 502) }}" placeholder="502">
+                                <small class="form-text">Default: 502</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Slave ID <span class="required">*</span></label>
+                                <input type="number" class="form-control" name="slave_id"
+                                       value="{{ sensor.slave_id }}" placeholder="1" min="1" max="247">
+                                <small class="form-text">1-247</small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Register Type <span class="required">*</span></label>
+                                <select class="form-control" name="register_type">
+                                    <option value="holding" {% if sensor.register_type == 'holding' %}selected{% endif %}>Holding Register (FC3)</option>
+                                    <option value="input" {% if sensor.register_type == 'input' %}selected{% endif %}>Input Register (FC4)</option>
+                                    <option value="coil" {% if sensor.register_type == 'coil' %}selected{% endif %}>Coil (FC1)</option>
+                                    <option value="discrete" {% if sensor.register_type == 'discrete' %}selected{% endif %}>Discrete Input (FC2)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Register Address <span class="required">*</span></label>
+                                <input type="number" class="form-control" name="register_address"
+                                       value="{{ sensor.register_address }}" placeholder="0" min="0">
+                                <small class="form-text">Register address (0-65535)</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Data Type <span class="required">*</span></label>
+                                <select class="form-control" name="data_type">
+                                    <option value="uint16" {% if sensor.data_type == 'uint16' %}selected{% endif %}>16-bit Unsigned Integer</option>
+                                    <option value="int16" {% if sensor.data_type == 'int16' %}selected{% endif %}>16-bit Signed Integer</option>
+                                    <option value="uint32" {% if sensor.data_type == 'uint32' %}selected{% endif %}>32-bit Unsigned Integer</option>
+                                    <option value="int32" {% if sensor.data_type == 'int32' %}selected{% endif %}>32-bit Signed Integer</option>
+                                    <option value="float32" {% if sensor.data_type == 'float32' %}selected{% endif %}>32-bit Float</option>
+                                    <option value="uint8_high" {% if sensor.data_type == 'uint8_high' %}selected{% endif %}>8-bit Unsigned (High Byte)</option>
+                                    <option value="uint8_low" {% if sensor.data_type == 'uint8_low' %}selected{% endif %}>8-bit Unsigned (Low Byte)</option>
+                                    <option value="int8_high" {% if sensor.data_type == 'int8_high' %}selected{% endif %}>8-bit Signed (High Byte)</option>
+                                    <option value="int8_low" {% if sensor.data_type == 'int8_low' %}selected{% endif %}>8-bit Signed (Low Byte)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Byte Order</label>
+                                <select class="form-control" name="byte_order">
+                                    <option value="big" {% if sensor.get('byte_order', 'big') == 'big' %}selected{% endif %}>Big Endian (AB)</option>
+                                    <option value="little" {% if sensor.get('byte_order') == 'little' %}selected{% endif %}>Little Endian (BA)</option>
+                                </select>
+                                <small class="form-text">For multi-byte values</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Word Order</label>
+                                <select class="form-control" name="word_order">
+                                    <option value="big" {% if sensor.get('word_order', 'big') == 'big' %}selected{% endif %}>Big Endian (ABCD)</option>
+                                    <option value="little" {% if sensor.get('word_order') == 'little' %}selected{% endif %}>Little Endian (DCBA)</option>
+                                </select>
+                                <small class="form-text">For 32-bit values (2 registers)</small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Parameter Name <span class="required">*</span></label>
+                                <input type="text" class="form-control" name="param_name"
+                                       value="{{ sensor.param_name }}" placeholder="e.g., ph">
+                                <small class="form-text">Parameter to send to ODAMS</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Unit <span class="required">*</span></label>
+                                <input type="text" class="form-control" name="unit"
+                                       value="{{ sensor.unit }}" placeholder="e.g., pH">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <button onclick="addModbusSensor()" class="btn btn-secondary">+ Add Modbus Sensor</button>
         </div>
     </div>
 
+    <!-- RS485 Tab -->
     <div class="tab-content" id="tab-rs485">
         <div class="empty-state">
             <h3>RS485 Support</h3>
@@ -90,12 +182,18 @@
         </div>
     </div>
 
+    <!-- Analog Tab -->
     <div class="tab-content" id="tab-analog">
         <div class="empty-state">
             <h3>Analog Input Support</h3>
             <p>This feature is coming soon. It will support reading sensor data from analog inputs.</p>
         </div>
     </div>
+</div>
+
+<div class="form-actions">
+    <button onclick="saveSensors()" class="btn btn-success">💾 Save Configuration</button>
+    <button onclick="location.reload()" class="btn btn-secondary">Cancel</button>
 </div>
 
 {% endblock %}
@@ -116,16 +214,27 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 function addSensor() {
-    const list = document.getElementById('sensors-list');
+    // Determine which tab is active
+    const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+    if (activeTab === 'iq-web') {
+        addIQWebSensor();
+    } else if (activeTab === 'modbus') {
+        addModbusSensor();
+    }
+}
+
+function addIQWebSensor() {
+    const list = document.getElementById('iq-sensors-list');
     const index = list.querySelectorAll('.sensor-config-card').length;
 
     const card = document.createElement('div');
     card.className = 'sensor-config-card';
+    card.dataset.type = 'iq_web_connect';
     card.dataset.index = index;
     card.innerHTML = `
         <div class="sensor-config-header">
-            <h4>Sensor ${index + 1}</h4>
-            <button onclick="removeSensor(${index})" class="btn btn-danger btn-sm">Remove</button>
+            <h4>IQ Web Sensor ${index + 1}</h4>
+            <button onclick="removeSensor(this)" class="btn btn-danger btn-sm">Remove</button>
         </div>
         <div class="sensor-config-body">
             <div class="form-row">
@@ -151,8 +260,106 @@ function addSensor() {
     list.appendChild(card);
 }
 
-function removeSensor(index) {
-    const card = document.querySelector(`.sensor-config-card[data-index="${index}"]`);
+function addModbusSensor() {
+    const list = document.getElementById('modbus-sensors-list');
+    const index = list.querySelectorAll('.sensor-config-card').length;
+
+    const card = document.createElement('div');
+    card.className = 'sensor-config-card modbus-card';
+    card.dataset.type = 'modbus_tcp';
+    card.dataset.index = index;
+    card.innerHTML = `
+        <div class="sensor-config-header">
+            <h4>Modbus TCP Sensor ${index + 1}</h4>
+            <button onclick="removeSensor(this)" class="btn btn-danger btn-sm">Remove</button>
+        </div>
+        <div class="sensor-config-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>IP Address <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="ip" placeholder="e.g., 192.168.1.100">
+                </div>
+                <div class="form-group">
+                    <label>Port</label>
+                    <input type="number" class="form-control" name="port" value="502" placeholder="502">
+                    <small class="form-text">Default: 502</small>
+                </div>
+                <div class="form-group">
+                    <label>Slave ID <span class="required">*</span></label>
+                    <input type="number" class="form-control" name="slave_id" placeholder="1" min="1" max="247">
+                    <small class="form-text">1-247</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Register Type <span class="required">*</span></label>
+                    <select class="form-control" name="register_type">
+                        <option value="holding">Holding Register (FC3)</option>
+                        <option value="input">Input Register (FC4)</option>
+                        <option value="coil">Coil (FC1)</option>
+                        <option value="discrete">Discrete Input (FC2)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Register Address <span class="required">*</span></label>
+                    <input type="number" class="form-control" name="register_address" placeholder="0" min="0">
+                    <small class="form-text">Register address (0-65535)</small>
+                </div>
+                <div class="form-group">
+                    <label>Data Type <span class="required">*</span></label>
+                    <select class="form-control" name="data_type">
+                        <option value="uint16">16-bit Unsigned Integer</option>
+                        <option value="int16">16-bit Signed Integer</option>
+                        <option value="uint32">32-bit Unsigned Integer</option>
+                        <option value="int32">32-bit Signed Integer</option>
+                        <option value="float32">32-bit Float</option>
+                        <option value="uint8_high">8-bit Unsigned (High Byte)</option>
+                        <option value="uint8_low">8-bit Unsigned (Low Byte)</option>
+                        <option value="int8_high">8-bit Signed (High Byte)</option>
+                        <option value="int8_low">8-bit Signed (Low Byte)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Byte Order</label>
+                    <select class="form-control" name="byte_order">
+                        <option value="big" selected>Big Endian (AB)</option>
+                        <option value="little">Little Endian (BA)</option>
+                    </select>
+                    <small class="form-text">For multi-byte values</small>
+                </div>
+                <div class="form-group">
+                    <label>Word Order</label>
+                    <select class="form-control" name="word_order">
+                        <option value="big" selected>Big Endian (ABCD)</option>
+                        <option value="little">Little Endian (DCBA)</option>
+                    </select>
+                    <small class="form-text">For 32-bit values (2 registers)</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Parameter Name <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="param_name" placeholder="e.g., ph">
+                    <small class="form-text">Parameter to send to ODAMS</small>
+                </div>
+                <div class="form-group">
+                    <label>Unit <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="unit" placeholder="e.g., pH">
+                </div>
+            </div>
+        </div>
+    `;
+
+    list.appendChild(card);
+}
+
+function removeSensor(btn) {
+    const card = btn.closest('.sensor-config-card');
     if (card && confirm('Are you sure you want to remove this sensor?')) {
         card.remove();
     }
@@ -163,14 +370,44 @@ function saveSensors() {
     const sensors = [];
 
     cards.forEach(card => {
-        const sensor_id = card.querySelector('[name="sensor_id"]').value.trim();
-        const param_name = card.querySelector('[name="param_name"]').value.trim();
-        const unit = card.querySelector('[name="unit"]').value.trim();
+        const type = card.dataset.type;
+        const sensor = { type: type };
 
-        if (sensor_id && param_name) {
-            sensors.push({ sensor_id, param_name, unit });
+        // Get all inputs within this card
+        const inputs = card.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            const name = input.name;
+            let value = input.value.trim();
+
+            // Convert numeric fields
+            if (input.type === 'number' && value) {
+                value = parseInt(value);
+            }
+
+            if (value !== '' || name === 'port') {  // Include port even if empty (has default)
+                sensor[name] = value || (name === 'port' ? 502 : value);
+            }
+        });
+
+        // Validate required fields based on type
+        let isValid = false;
+        if (type === 'iq_web_connect') {
+            isValid = sensor.sensor_id && sensor.param_name;
+        } else if (type === 'modbus_tcp') {
+            isValid = sensor.ip && sensor.slave_id && sensor.register_type &&
+                     sensor.register_address !== undefined && sensor.data_type &&
+                     sensor.param_name && sensor.unit;
+        }
+
+        if (isValid) {
+            sensors.push(sensor);
         }
     });
+
+    if (sensors.length === 0) {
+        alert('⚠️ No valid sensors configured. Please add at least one sensor.');
+        return;
+    }
 
     fetch('/api/save_sensors', {
         method: 'POST',

@@ -2,7 +2,7 @@ import json
 import time
 import requests
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, Dict, Any
 from bs4 import BeautifulSoup
 
 from .constants import IST, logger
@@ -10,6 +10,7 @@ from .config import get_env
 from .status import status
 from .crypto import encrypt_payload, generate_signature
 from .payload import build_plain_payload
+from .modbus_fetcher import fetch_modbus_sensors
 
 
 def get_public_ip() -> str:
@@ -180,4 +181,62 @@ def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
         error_msg = f"Parsing error: {str(e)}"
         logger.error(f"Error fetching data: {error_msg}")
         send_error_to_endpoint("FETCH_ERROR", error_msg)
+        return {}
+
+
+def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
+    """
+    Fetch data from all configured sensors (multiple types)
+
+    Args:
+        sensors_config: Complete sensors configuration dict with 'sensors' list
+
+    Returns:
+        Dictionary mapping param_name to {value, unit}
+    """
+    all_sensors = {}
+
+    try:
+        sensors_list = sensors_config.get('sensors', [])
+
+        # Separate sensors by type
+        iq_web_sensors = {}
+        modbus_sensors = []
+
+        for sensor in sensors_list:
+            sensor_type = sensor.get('type', 'iq_web_connect')  # Default to IQ Web for backward compatibility
+
+            if sensor_type == 'iq_web_connect':
+                # Build config_sensors dict for IQ Web Connect
+                sensor_id = sensor.get('sensor_id')
+                if sensor_id:
+                    iq_web_sensors[sensor_id] = {
+                        'param_name': sensor.get('param_name'),
+                        'unit': sensor.get('unit', '')
+                    }
+
+            elif sensor_type == 'modbus_tcp':
+                modbus_sensors.append(sensor)
+
+        # Fetch IQ Web Connect sensors
+        if iq_web_sensors:
+            datapage_url = get_env('datapage_url', '')
+            if datapage_url:
+                iq_data = fetch_sensor_data(datapage_url, iq_web_sensors)
+                all_sensors.update(iq_data)
+                logger.info(f"Fetched {len(iq_data)} IQ Web Connect sensors")
+            else:
+                logger.warning("DATAPAGE_URL not configured, skipping IQ Web Connect sensors")
+
+        # Fetch Modbus TCP sensors
+        if modbus_sensors:
+            modbus_data = fetch_modbus_sensors(modbus_sensors)
+            all_sensors.update(modbus_data)
+            logger.info(f"Fetched {len(modbus_data)} Modbus TCP sensors")
+
+        logger.info(f"Total sensors fetched: {len(all_sensors)}")
+        return all_sensors
+
+    except Exception as e:
+        logger.error(f"Error in fetch_all_sensors: {e}")
         return {}

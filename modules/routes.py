@@ -5,7 +5,7 @@ from .constants import logger
 from .config import load_env_config, load_sensors_config, save_sensors_config, validate_sensors_config
 from .status import status
 from .queue import load_queue
-from .network import fetch_sensor_data, send_to_server
+from .network import fetch_sensor_data, fetch_all_sensors, send_to_server
 
 
 def register_routes(app, auth):
@@ -83,11 +83,8 @@ def register_routes(app, auth):
     def api_sensor_data():
         """Get current sensor data"""
         try:
-            env_config = load_env_config()
             sensors_config = load_sensors_config()
-            config_sensors = {s['sensor_id']: s for s in sensors_config.get('sensors', [])}
-
-            sensors = fetch_sensor_data(env_config['datapage_url'], config_sensors)
+            sensors = fetch_all_sensors(sensors_config)
 
             return jsonify({
                 "success": True,
@@ -158,21 +155,20 @@ def register_routes(app, auth):
     def test_fetch():
         """Manual test of data fetching"""
         try:
-            env_config = load_env_config()
             sensors_config = load_sensors_config()
-            config_sensors = {s['sensor_id']: s for s in sensors_config.get('sensors', [])}
-            sensors = fetch_sensor_data(env_config['datapage_url'], config_sensors)
+            sensors = fetch_all_sensors(sensors_config)
 
             if not sensors:
                 return jsonify({
                     "success": False,
-                    "error": "No sensor data fetched. Check DATAPAGE_URL and sensor IDs."
+                    "error": "No sensor data fetched. Check sensor configuration."
                 })
 
+            expected_count = len(sensors_config.get('sensors', []))
             return jsonify({
                 "success": True,
                 "sensors": sensors,
-                "expected_count": len(config_sensors),
+                "expected_count": expected_count,
                 "actual_count": len(sensors)
             })
         except Exception as e:
@@ -187,10 +183,8 @@ def register_routes(app, auth):
     def test_send():
         """Manual test of data sending"""
         try:
-            env_config = load_env_config()
             sensors_config = load_sensors_config()
-            config_sensors = {s['sensor_id']: s for s in sensors_config.get('sensors', [])}
-            sensors = fetch_sensor_data(env_config['datapage_url'], config_sensors)
+            sensors = fetch_all_sensors(sensors_config)
 
             if not sensors:
                 return jsonify({

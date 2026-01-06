@@ -10,6 +10,7 @@ from .payload import build_plain_payload
 from .network import (
     send_to_server,
     fetch_sensor_data,
+    fetch_all_sensors,
     send_error_to_endpoint
 )
 from .queue import load_queue, save_queue, retry_failed_transmissions
@@ -89,14 +90,13 @@ def logger_thread():
                     continue
 
             if should_send:
-                # Fetch new data
-                config_sensors = {s['sensor_id']: s for s in sensors_config.get('sensors', [])}
-                datapage_url = get_env('datapage_url', '')
-                sensors = fetch_sensor_data(datapage_url, config_sensors)
+                # Fetch new data from all sensor types
+                sensors = fetch_all_sensors(sensors_config)
 
                 if sensors:
-                    # Update fetch success if we got all sensors
-                    if len(sensors) == len(config_sensors):
+                    # Update fetch success
+                    expected_count = len(sensors_config.get('sensors', []))
+                    if len(sensors) == expected_count:
                         status.update_fetch_success()
 
                     logger.info(f"Fetched sensors: {sensors}")
