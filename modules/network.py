@@ -201,7 +201,8 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
 
         # Separate sensors by type
         iq_web_sensors = {}
-        modbus_sensors = []
+        modbus_tcp_sensors = []
+        modbus_rtu_sensors = []
 
         for sensor in sensors_list:
             sensor_type = sensor.get('type', 'iq_web_connect')  # Default to IQ Web for backward compatibility
@@ -216,7 +217,10 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
                     }
 
             elif sensor_type == 'modbus_tcp':
-                modbus_sensors.append(sensor)
+                modbus_tcp_sensors.append(sensor)
+
+            elif sensor_type == 'modbus_rtu':
+                modbus_rtu_sensors.append(sensor)
 
         # Fetch IQ Web Connect sensors
         if iq_web_sensors:
@@ -229,10 +233,21 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
                 logger.warning("DATAPAGE_URL not configured, skipping IQ Web Connect sensors")
 
         # Fetch Modbus TCP sensors
-        if modbus_sensors:
-            modbus_data = fetch_modbus_sensors(modbus_sensors)
+        if modbus_tcp_sensors:
+            modbus_data = fetch_modbus_sensors(modbus_tcp_sensors)
             all_sensors.update(modbus_data)
             logger.info(f"Fetched {len(modbus_data)} Modbus TCP sensors")
+
+        # Fetch Modbus RTU sensors
+        if modbus_rtu_sensors:
+            from .modbus_rtu_fetcher import fetch_modbus_rtu_sensors
+            rtu_device = sensors_config.get('rtu_device')
+            if rtu_device:
+                rtu_data = fetch_modbus_rtu_sensors(rtu_device, modbus_rtu_sensors)
+                all_sensors.update(rtu_data)
+                logger.info(f"Fetched {len(rtu_data)} Modbus RTU sensors")
+            else:
+                logger.warning("RTU device not configured, skipping Modbus RTU sensors")
 
         logger.info(f"Total sensors fetched: {len(all_sensors)}")
         return all_sensors

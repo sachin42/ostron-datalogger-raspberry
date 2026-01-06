@@ -68,11 +68,13 @@
     <div class="sensors-grid" id="sensors-grid">
         {% if sensors %}
             {% for sensor in sensors %}
-            <div class="sensor-card" data-sensor-id="{{ sensor.get('sensor_id', sensor.get('ip', 'unknown')) }}">
+            <div class="sensor-card" data-sensor-id="{{ sensor.get('sensor_id', sensor.get('ip', sensor.get('slave_id', 'unknown'))) }}">
                 <div class="sensor-header">
                     <div class="sensor-type-badge">
                         {% if sensor.get('type') == 'modbus_tcp' %}
                             Modbus TCP
+                        {% elif sensor.get('type') == 'modbus_rtu' %}
+                            Modbus RTU
                         {% else %}
                             IQ Web Connect
                         {% endif %}
@@ -80,6 +82,8 @@
                     <div class="sensor-id">
                         {% if sensor.get('type') == 'modbus_tcp' %}
                             {{ sensor.ip }}:{{ sensor.get('slave_id') }}
+                        {% elif sensor.get('type') == 'modbus_rtu' %}
+                            Slave {{ sensor.get('slave_id') }}
                         {% else %}
                             {{ sensor.sensor_id }}
                         {% endif %}

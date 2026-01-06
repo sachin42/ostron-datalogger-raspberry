@@ -47,7 +47,8 @@ def get_default_sensors_config() -> dict:
     """Get default sensors configuration"""
     return {
         "server_running": False,
-        "sensors": []
+        "sensors": [],
+        "rtu_device": None  # Modbus RTU serial device config (only one device supported)
     }
 
 
@@ -84,6 +85,18 @@ def validate_sensors_config(sensors_data: dict) -> Tuple[bool, str]:
     if not isinstance(sensors_data['sensors'], list):
         return False, "'sensors' must be a list"
 
+    # Check if there are any Modbus RTU sensors
+    has_rtu_sensors = any(s.get('type') == 'modbus_rtu' for s in sensors_data['sensors'])
+
+    # If there are RTU sensors, validate RTU device configuration
+    if has_rtu_sensors:
+        rtu_device = sensors_data.get('rtu_device')
+        if not rtu_device:
+            return False, "Modbus RTU sensors require rtu_device configuration"
+
+        if not rtu_device.get('port'):
+            return False, "RTU device missing port (e.g., COM7, /dev/ttyUSB0)"
+
     for idx, sensor in enumerate(sensors_data['sensors']):
         sensor_type = sensor.get('type', 'iq_web_connect')
 
@@ -98,6 +111,13 @@ def validate_sensors_config(sensors_data: dict) -> Tuple[bool, str]:
             missing = [f for f in required_fields if f not in sensor or sensor[f] == '']
             if missing:
                 return False, f"Modbus TCP sensor {idx+1}: missing {', '.join(missing)}"
+
+        elif sensor_type == 'modbus_rtu':
+            required_fields = ['slave_id', 'register_type', 'register_address',
+                             'data_type', 'param_name', 'unit']
+            missing = [f for f in required_fields if f not in sensor or sensor[f] == '']
+            if missing:
+                return False, f"Modbus RTU sensor {idx+1}: missing {', '.join(missing)}"
 
         else:
             return False, f"Sensor {idx+1}: unknown type '{sensor_type}'"

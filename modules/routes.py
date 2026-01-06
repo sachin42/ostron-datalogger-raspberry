@@ -45,7 +45,8 @@ def register_routes(app, auth):
 
         return render_template('sensors.html',
                              env_config=env_config,
-                             sensors=sensors_config.get('sensors', []))
+                             sensors=sensors_config.get('sensors', []),
+                             rtu_device=sensors_config.get('rtu_device'))
 
     @app.route('/settings')
     @auth.login_required
@@ -125,9 +126,11 @@ def register_routes(app, auth):
         try:
             data = request.get_json()
             sensors = data.get('sensors', [])
+            rtu_device = data.get('rtu_device')
 
             sensors_config = load_sensors_config()
             sensors_config['sensors'] = sensors
+            sensors_config['rtu_device'] = rtu_device  # Save RTU device config
 
             # Validate configuration
             valid, msg = validate_sensors_config(sensors_config)

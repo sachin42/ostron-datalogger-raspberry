@@ -170,48 +170,77 @@ def parse_modbus_registers(
 
         elif data_type == 'uint32':
             # 32-bit unsigned integer from 2 registers
+            # Determine register order based on word_order
             if word_order == 'big':
-                high, low = registers[0], registers[1]
+                word_high, word_low = registers[0], registers[1]
             else:
-                low, high = registers[0], registers[1]
+                word_low, word_high = registers[0], registers[1]
 
-            # Convert to bytes and back to handle byte order
+            # Pack registers to bytes based on byte_order
             if byte_order == 'big':
-                bytes_data = struct.pack('>HH', high, low)
-                value = struct.unpack('>I', bytes_data)[0]
+                bytes_high = struct.pack('>H', word_high)
+                bytes_low = struct.pack('>H', word_low)
             else:
-                bytes_data = struct.pack('<HH', high, low)
-                value = struct.unpack('<I', bytes_data)[0]
+                bytes_high = struct.pack('<H', word_high)
+                bytes_low = struct.pack('<H', word_low)
+
+            # Concatenate and unpack
+            bytes_data = bytes_high + bytes_low
+            value = struct.unpack('>I', bytes_data)[0]
             return float(value)
 
         elif data_type == 'int32':
             # 32-bit signed integer from 2 registers
+            # Determine register order based on word_order
             if word_order == 'big':
-                high, low = registers[0], registers[1]
+                word_high, word_low = registers[0], registers[1]
             else:
-                low, high = registers[0], registers[1]
+                word_low, word_high = registers[0], registers[1]
 
+            # Pack registers to bytes based on byte_order
             if byte_order == 'big':
-                bytes_data = struct.pack('>HH', high, low)
-                value = struct.unpack('>i', bytes_data)[0]
+                bytes_high = struct.pack('>H', word_high)
+                bytes_low = struct.pack('>H', word_low)
             else:
-                bytes_data = struct.pack('<HH', high, low)
-                value = struct.unpack('<i', bytes_data)[0]
+                bytes_high = struct.pack('<H', word_high)
+                bytes_low = struct.pack('<H', word_low)
+
+            # Concatenate and unpack
+            bytes_data = bytes_high + bytes_low
+            value = struct.unpack('>i', bytes_data)[0]
             return float(value)
 
         elif data_type == 'float32':
             # 32-bit IEEE 754 float from 2 registers
-            if word_order == 'big':
-                high, low = registers[0], registers[1]
-            else:
-                low, high = registers[0], registers[1]
+            # Four possible byte orderings:
+            # - ABCD (big/big): Standard Modbus
+            # - DCBA (little/little): Fully reversed
+            # - BADC (little/big): Byte swap
+            # - CDAB (big/little): Word swap
 
-            if byte_order == 'big':
-                bytes_data = struct.pack('>HH', high, low)
-                value = struct.unpack('>f', bytes_data)[0]
+            # Determine register order based on word_order
+            if word_order == 'big':
+                # ABCD or BADC: First register is high word
+                word_high, word_low = registers[0], registers[1]
             else:
-                bytes_data = struct.pack('<HH', high, low)
-                value = struct.unpack('<f', bytes_data)[0]
+                # CDAB or DCBA: First register is low word
+                word_low, word_high = registers[0], registers[1]
+
+            # Pack registers to bytes based on byte_order
+            if byte_order == 'big':
+                # ABCD or CDAB: Big-endian bytes within each word
+                bytes_high = struct.pack('>H', word_high)
+                bytes_low = struct.pack('>H', word_low)
+            else:
+                # BADC or DCBA: Little-endian bytes within each word
+                bytes_high = struct.pack('<H', word_high)
+                bytes_low = struct.pack('<H', word_low)
+
+            # Concatenate: high word bytes first, then low word bytes
+            bytes_data = bytes_high + bytes_low
+
+            # Unpack as big-endian float (bytes are already in correct order)
+            value = struct.unpack('>f', bytes_data)[0]
             return float(value)
 
         else:

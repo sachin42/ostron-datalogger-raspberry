@@ -1,16 +1,52 @@
-# Modbus TCP Sensor Configuration Guide
+# Modbus Sensor Configuration Guide
 
 ## Overview
 
-The datalogger now supports reading sensor values directly from Modbus TCP devices in addition to IQ Web Connect HTML parsing. This allows you to connect to PLCs, RTUs, and other Modbus-enabled devices.
+The datalogger supports reading sensor values directly from Modbus devices via:
+- **Modbus TCP** - Network-based communication over Ethernet
+- **Modbus RTU** - Serial communication over RS485/RS232
 
-## Configuration Fields
+This allows you to connect to PLCs, RTUs, and other Modbus-enabled devices in addition to IQ Web Connect HTML parsing.
+
+## Modbus TCP Configuration
 
 ### Connection Settings
 
 - **IP Address** (required): IP address of the Modbus device (e.g., `192.168.1.100`)
 - **Port** (optional): TCP port number (default: `502`)
 - **Slave ID** (required): Modbus slave/unit ID (1-247)
+
+## Modbus RTU (RS485) Configuration
+
+### Serial Device Configuration
+
+Configure the RS485/serial port (only one serial device supported):
+
+- **Serial Port** (required): Port name
+  - Windows: `COM1`, `COM7`, etc.
+  - Linux: `/dev/ttyUSB0`, `/dev/ttyS0`, etc.
+- **Baud Rate** (required): Communication speed (default: `9600`)
+  - Common values: 9600, 19200, 38400, 57600, 115200
+- **Parity** (optional): Error checking (default: `N`)
+  - `N`: None (most common)
+  - `E`: Even
+  - `O`: Odd
+- **Data Bits** (optional): Number of data bits (default: `8`)
+  - Values: 7 or 8
+- **Stop Bits** (optional): Number of stop bits (default: `1`)
+  - Values: 1 or 2
+- **Timeout** (optional): Communication timeout in seconds (default: `3`)
+  - Range: 1-10 seconds
+
+### RTU Sensors
+
+After configuring the serial device, add sensors with different slave IDs on the same RS485 bus:
+
+- **Slave ID** (required): Modbus slave/unit ID (1-247) - Each sensor must have a unique slave ID
+
+## Common Configuration Fields
+
+The following fields apply to both Modbus TCP and Modbus RTU sensors:
 
 ### Register Settings
 
@@ -41,24 +77,32 @@ Select the data type that matches how your device stores the value:
 
 ### Byte/Word Order
 
-For values spanning multiple bytes or registers, you need to specify the byte and word order:
+For 32-bit values (int32, uint32, float32), you need to specify how bytes are arranged across the two 16-bit registers:
 
-#### Byte Order (within each 16-bit register):
-- **Big Endian (AB)**: Most significant byte first (default, most common)
-- **Little Endian (BA)**: Least significant byte first
+#### Understanding Byte Order Settings
 
-#### Word Order (for 32-bit values across 2 registers):
-- **Big Endian (ABCD)**: High word in first register (default, most common)
-- **Little Endian (DCBA)**: Low word in first register
+**Byte Order** - Controls byte arrangement within each 16-bit register:
+- **Big Endian (AB)**: Most significant byte first (standard)
+- **Little Endian (BA)**: Least significant byte first (byte swap)
 
-### Common Byte/Word Order Combinations:
+**Word Order** - Controls which register contains the high/low word:
+- **Big Endian**: First register is high word (most significant)
+- **Little Endian**: First register is low word (least significant)
 
-| Order | Description | Registers | Byte Layout |
-|-------|-------------|-----------|-------------|
-| Big-Big (ABCD) | Standard Modbus | [High, Low] | Most common |
-| Big-Little (CDAB) | Word swap | [Low, High] | Some PLCs |
-| Little-Big (BADC) | Byte swap | [High, Low] | Rare |
-| Little-Little (DCBA) | Fully reversed | [Low, High] | Very rare |
+### Byte/Word Order Combinations for 32-bit Values:
+
+| Byte Order | Word Order | Result | Common Name | Usage |
+|------------|------------|--------|-------------|-------|
+| Big | Big | ABCD | Big Endian | Standard Modbus (most common) |
+| Little | Little | DCBA | Little Endian | Fully reversed (rare) |
+| Little | Big | BADC | Big Endian with Byte Swap | Some PLCs |
+| Big | Little | CDAB | Little Endian with Byte Swap | Some PLCs |
+
+**Note**: If your Modbus device documentation or configuration tool shows:
+- "Big Endian" → Use Byte Order: Big, Word Order: Big (ABCD)
+- "Little Endian" → Use Byte Order: Little, Word Order: Little (DCBA)
+- "Big Endian with Byte Swap" → Use Byte Order: Little, Word Order: Big (BADC)
+- "Little Endian with Byte Swap" → Use Byte Order: Big, Word Order: Little (CDAB)
 
 ### ODAMS Fields
 
@@ -67,7 +111,9 @@ For values spanning multiple bytes or registers, you need to specify the byte an
 
 ## Configuration Examples
 
-### Example 1: Temperature Sensor (16-bit signed)
+### Modbus TCP Examples
+
+#### Example 1: Temperature Sensor (16-bit signed)
 
 ```
 IP Address: 192.168.1.50
@@ -83,7 +129,7 @@ Unit: °C
 
 This reads a signed 16-bit temperature value from input register 100.
 
-### Example 2: Flow Meter (32-bit float)
+#### Example 2: Flow Meter (32-bit float)
 
 ```
 IP Address: 192.168.1.51
@@ -100,7 +146,7 @@ Unit: m3/h
 
 This reads a 32-bit float flow value from holding registers 5000-5001.
 
-### Example 3: pH Sensor (High byte of register)
+#### Example 3: pH Sensor (High byte of register)
 
 ```
 IP Address: 192.168.1.52
@@ -116,7 +162,7 @@ Unit: pH
 
 This reads only the high byte of register 0 as an unsigned 8-bit value.
 
-### Example 4: Level Transmitter (32-bit unsigned, word-swapped)
+#### Example 4: Level Transmitter (32-bit unsigned, word-swapped)
 
 ```
 IP Address: 192.168.1.53
@@ -132,6 +178,117 @@ Unit: mm
 ```
 
 This reads a 32-bit unsigned value with word order swapped.
+
+### Modbus RTU Examples
+
+#### Serial Device Configuration Example
+
+```
+Serial Port: COM7 (Windows) or /dev/ttyUSB0 (Linux)
+Baud Rate: 9600
+Parity: None (N)
+Data Bits: 8
+Stop Bits: 1
+Timeout: 3 seconds
+```
+
+#### Example 1: Multiple Temperature Sensors on RS485 Bus
+
+**Serial Device:** COM7, 9600 baud, 8N1
+
+**Sensor 1 - Warehouse Temperature:**
+```
+Slave ID: 1
+Register Type: Input Register (FC4)
+Register Address: 0
+Data Type: int16
+Byte Order: Big Endian
+Parameter Name: temp_warehouse
+Unit: °C
+```
+
+**Sensor 2 - Cold Storage Temperature:**
+```
+Slave ID: 2
+Register Type: Input Register (FC4)
+Register Address: 0
+Data Type: int16
+Byte Order: Big Endian
+Parameter Name: temp_cold_storage
+Unit: °C
+```
+
+**Sensor 3 - Outdoor Temperature:**
+```
+Slave ID: 3
+Register Type: Input Register (FC4)
+Register Address: 0
+Data Type: int16
+Byte Order: Big Endian
+Parameter Name: temp_outdoor
+Unit: °C
+```
+
+This configuration reads from 3 different temperature sensors on the same RS485 bus, each with a unique slave ID.
+
+#### Example 2: Flow Meter on RS485 (32-bit float)
+
+**Serial Device:** /dev/ttyUSB0, 19200 baud, 8N1
+
+**Flow Sensor:**
+```
+Slave ID: 1
+Register Type: Holding Register (FC3)
+Register Address: 100
+Data Type: float32
+Byte Order: Big Endian
+Word Order: Big Endian
+Parameter Name: flow_rate
+Unit: m3/h
+```
+
+This reads a 32-bit float value from an RS485 flow meter.
+
+#### Example 3: Mixed Sensors on RS485 Bus
+
+**Serial Device:** COM3, 9600 baud, Even parity, 8E1
+
+**pH Meter:**
+```
+Slave ID: 10
+Register Type: Holding Register (FC3)
+Register Address: 0
+Data Type: uint16
+Byte Order: Big Endian
+Parameter Name: ph
+Unit: pH
+```
+
+**Conductivity Meter:**
+```
+Slave ID: 11
+Register Type: Holding Register (FC3)
+Register Address: 5
+Data Type: uint32
+Byte Order: Big Endian
+Word Order: Big Endian
+Parameter Name: conductivity
+Unit: μS/cm
+```
+
+**Turbidity Meter:**
+```
+Slave ID: 12
+Register Type: Input Register (FC4)
+Register Address: 20
+Data Type: float32
+Byte Order: Big Endian
+Word Order: Big Endian
+Parameter Name: turbidity
+Unit: NTU
+```
+
+This shows different sensor types (pH, conductivity, turbidity) on the same RS485 bus with different slave IDs.
 
 ## Testing Modbus Sensors
 

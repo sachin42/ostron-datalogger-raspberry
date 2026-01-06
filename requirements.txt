@@ -6,3 +6,4 @@ pycryptodome==3.19.0
 pytz==2023.3
 python-dotenv==1.0.0
 pymodbus==3.5.4
+pyserial==3.5

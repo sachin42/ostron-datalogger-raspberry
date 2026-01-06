@@ -14,7 +14,7 @@
     <div class="tab-buttons">
         <button class="tab-btn active" data-tab="iq-web">IQ Web Connect</button>
         <button class="tab-btn" data-tab="modbus">Modbus TCP</button>
-        <button class="tab-btn" data-tab="rs485" disabled>RS485 <span class="badge badge-info">Coming Soon</span></button>
+        <button class="tab-btn" data-tab="rs485">Modbus RTU (RS485)</button>
         <button class="tab-btn" data-tab="analog" disabled>Analog <span class="badge badge-info">Coming Soon</span></button>
     </div>
 
@@ -176,9 +176,158 @@
 
     <!-- RS485 Tab -->
     <div class="tab-content" id="tab-rs485">
-        <div class="empty-state">
-            <h3>RS485 Support</h3>
-            <p>This feature is coming soon. It will support reading sensor data from RS485 devices.</p>
+        <div class="section">
+            <h3>Modbus RTU (RS485) Configuration</h3>
+            <p class="text-muted">Read sensor data from Modbus RTU devices via serial/RS485 bus</p>
+
+            <!-- Serial Device Configuration -->
+            <div class="device-config-section">
+                <h4>Serial Device Configuration</h4>
+                <p class="text-muted">Configure the RS485/serial port (only one device supported)</p>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Serial Port <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="rtu-port"
+                               value="{{ rtu_device.port if rtu_device else '' }}"
+                               placeholder="e.g., COM7 or /dev/ttyUSB0">
+                        <small class="form-text">Windows: COM1, COM7 | Linux: /dev/ttyUSB0, /dev/ttyS0</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Baud Rate <span class="required">*</span></label>
+                        <select class="form-control" id="rtu-baudrate">
+                            <option value="9600" {% if rtu_device and rtu_device.baudrate == 9600 %}selected{% endif %}>9600</option>
+                            <option value="19200" {% if rtu_device and rtu_device.baudrate == 19200 %}selected{% endif %}>19200</option>
+                            <option value="38400" {% if rtu_device and rtu_device.baudrate == 38400 %}selected{% endif %}>38400</option>
+                            <option value="57600" {% if rtu_device and rtu_device.baudrate == 57600 %}selected{% endif %}>57600</option>
+                            <option value="115200" {% if rtu_device and rtu_device.baudrate == 115200 %}selected{% endif %}>115200</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Parity</label>
+                        <select class="form-control" id="rtu-parity">
+                            <option value="N" {% if not rtu_device or rtu_device.get('parity', 'N') == 'N' %}selected{% endif %}>None (N)</option>
+                            <option value="E" {% if rtu_device and rtu_device.get('parity') == 'E' %}selected{% endif %}>Even (E)</option>
+                            <option value="O" {% if rtu_device and rtu_device.get('parity') == 'O' %}selected{% endif %}>Odd (O)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data Bits</label>
+                        <select class="form-control" id="rtu-bytesize">
+                            <option value="7" {% if rtu_device and rtu_device.get('bytesize') == 7 %}selected{% endif %}>7</option>
+                            <option value="8" {% if not rtu_device or rtu_device.get('bytesize', 8) == 8 %}selected{% endif %}>8</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Stop Bits</label>
+                        <select class="form-control" id="rtu-stopbits">
+                            <option value="1" {% if not rtu_device or rtu_device.get('stopbits', 1) == 1 %}selected{% endif %}>1</option>
+                            <option value="2" {% if rtu_device and rtu_device.get('stopbits') == 2 %}selected{% endif %}>2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Timeout (seconds)</label>
+                        <input type="number" class="form-control" id="rtu-timeout"
+                               value="{{ rtu_device.timeout if rtu_device and rtu_device.timeout else 3 }}"
+                               min="1" max="10" placeholder="3">
+                        <small class="form-text">Communication timeout (1-10 seconds)</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RTU Sensors List -->
+            <div class="sensors-section">
+                <h4>Modbus RTU Sensors</h4>
+                <p class="text-muted">Add sensors connected to the RS485 bus (different slave IDs)</p>
+
+                <div id="rtu-sensors-list">
+                    {% for sensor in sensors if sensor.get('type') == 'modbus_rtu' %}
+                    <div class="sensor-config-card modbus-card" data-type="modbus_rtu" data-index="{{ loop.index0 }}">
+                        <div class="sensor-config-header">
+                            <h4>RTU Sensor {{ loop.index }}</h4>
+                            <button onclick="removeSensor(this)" class="btn btn-danger btn-sm">Remove</button>
+                        </div>
+                        <div class="sensor-config-body">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Slave ID <span class="required">*</span></label>
+                                    <input type="number" class="form-control" name="slave_id"
+                                           value="{{ sensor.slave_id }}" placeholder="1" min="1" max="247">
+                                    <small class="form-text">Modbus slave ID (1-247)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Register Type <span class="required">*</span></label>
+                                    <select class="form-control" name="register_type">
+                                        <option value="holding" {% if sensor.register_type == 'holding' %}selected{% endif %}>Holding Register (FC3)</option>
+                                        <option value="input" {% if sensor.register_type == 'input' %}selected{% endif %}>Input Register (FC4)</option>
+                                        <option value="coil" {% if sensor.register_type == 'coil' %}selected{% endif %}>Coil (FC1)</option>
+                                        <option value="discrete" {% if sensor.register_type == 'discrete' %}selected{% endif %}>Discrete Input (FC2)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Register Address <span class="required">*</span></label>
+                                    <input type="number" class="form-control" name="register_address"
+                                           value="{{ sensor.register_address }}" placeholder="0" min="0">
+                                    <small class="form-text">Register address (0-65535)</small>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Data Type <span class="required">*</span></label>
+                                    <select class="form-control" name="data_type">
+                                        <option value="uint16" {% if sensor.data_type == 'uint16' %}selected{% endif %}>16-bit Unsigned Integer</option>
+                                        <option value="int16" {% if sensor.data_type == 'int16' %}selected{% endif %}>16-bit Signed Integer</option>
+                                        <option value="uint32" {% if sensor.data_type == 'uint32' %}selected{% endif %}>32-bit Unsigned Integer</option>
+                                        <option value="int32" {% if sensor.data_type == 'int32' %}selected{% endif %}>32-bit Signed Integer</option>
+                                        <option value="float32" {% if sensor.data_type == 'float32' %}selected{% endif %}>32-bit Float</option>
+                                        <option value="uint8_high" {% if sensor.data_type == 'uint8_high' %}selected{% endif %}>8-bit Unsigned (High Byte)</option>
+                                        <option value="uint8_low" {% if sensor.data_type == 'uint8_low' %}selected{% endif %}>8-bit Unsigned (Low Byte)</option>
+                                        <option value="int8_high" {% if sensor.data_type == 'int8_high' %}selected{% endif %}>8-bit Signed (High Byte)</option>
+                                        <option value="int8_low" {% if sensor.data_type == 'int8_low' %}selected{% endif %}>8-bit Signed (Low Byte)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Byte Order</label>
+                                    <select class="form-control" name="byte_order">
+                                        <option value="big" {% if sensor.get('byte_order', 'big') == 'big' %}selected{% endif %}>Big Endian (AB)</option>
+                                        <option value="little" {% if sensor.get('byte_order') == 'little' %}selected{% endif %}>Little Endian (BA)</option>
+                                    </select>
+                                    <small class="form-text">For multi-byte values</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Word Order</label>
+                                    <select class="form-control" name="word_order">
+                                        <option value="big" {% if sensor.get('word_order', 'big') == 'big' %}selected{% endif %}>Big Endian (ABCD)</option>
+                                        <option value="little" {% if sensor.get('word_order') == 'little' %}selected{% endif %}>Little Endian (DCBA)</option>
+                                    </select>
+                                    <small class="form-text">For 32-bit values (2 registers)</small>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Parameter Name <span class="required">*</span></label>
+                                    <input type="text" class="form-control" name="param_name"
+                                           value="{{ sensor.param_name }}" placeholder="e.g., temperature">
+                                    <small class="form-text">Parameter to send to ODAMS</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Unit <span class="required">*</span></label>
+                                    <input type="text" class="form-control" name="unit"
+                                           value="{{ sensor.unit }}" placeholder="e.g., °C">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <button onclick="addRTUSensor()" class="btn btn-secondary">+ Add RTU Sensor</button>
+            </div>
         </div>
     </div>
 
@@ -220,6 +369,8 @@ function addSensor() {
         addIQWebSensor();
     } else if (activeTab === 'modbus') {
         addModbusSensor();
+    } else if (activeTab === 'rs485') {
+        addRTUSensor();
     }
 }
 
@@ -358,6 +509,92 @@ function addModbusSensor() {
     list.appendChild(card);
 }
 
+function addRTUSensor() {
+    const list = document.getElementById('rtu-sensors-list');
+    const index = list.querySelectorAll('.sensor-config-card').length;
+
+    const card = document.createElement('div');
+    card.className = 'sensor-config-card modbus-card';
+    card.dataset.type = 'modbus_rtu';
+    card.dataset.index = index;
+    card.innerHTML = `
+        <div class="sensor-config-header">
+            <h4>RTU Sensor ${index + 1}</h4>
+            <button onclick="removeSensor(this)" class="btn btn-danger btn-sm">Remove</button>
+        </div>
+        <div class="sensor-config-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Slave ID <span class="required">*</span></label>
+                    <input type="number" class="form-control" name="slave_id" placeholder="1" min="1" max="247">
+                    <small class="form-text">Modbus slave ID (1-247)</small>
+                </div>
+                <div class="form-group">
+                    <label>Register Type <span class="required">*</span></label>
+                    <select class="form-control" name="register_type">
+                        <option value="holding">Holding Register (FC3)</option>
+                        <option value="input">Input Register (FC4)</option>
+                        <option value="coil">Coil (FC1)</option>
+                        <option value="discrete">Discrete Input (FC2)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Register Address <span class="required">*</span></label>
+                    <input type="number" class="form-control" name="register_address" placeholder="0" min="0">
+                    <small class="form-text">Register address (0-65535)</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Data Type <span class="required">*</span></label>
+                    <select class="form-control" name="data_type">
+                        <option value="uint16">16-bit Unsigned Integer</option>
+                        <option value="int16">16-bit Signed Integer</option>
+                        <option value="uint32">32-bit Unsigned Integer</option>
+                        <option value="int32">32-bit Signed Integer</option>
+                        <option value="float32">32-bit Float</option>
+                        <option value="uint8_high">8-bit Unsigned (High Byte)</option>
+                        <option value="uint8_low">8-bit Unsigned (Low Byte)</option>
+                        <option value="int8_high">8-bit Signed (High Byte)</option>
+                        <option value="int8_low">8-bit Signed (Low Byte)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Byte Order</label>
+                    <select class="form-control" name="byte_order">
+                        <option value="big" selected>Big Endian (AB)</option>
+                        <option value="little">Little Endian (BA)</option>
+                    </select>
+                    <small class="form-text">For multi-byte values</small>
+                </div>
+                <div class="form-group">
+                    <label>Word Order</label>
+                    <select class="form-control" name="word_order">
+                        <option value="big" selected>Big Endian (ABCD)</option>
+                        <option value="little">Little Endian (DCBA)</option>
+                    </select>
+                    <small class="form-text">For 32-bit values (2 registers)</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Parameter Name <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="param_name" placeholder="e.g., temperature">
+                    <small class="form-text">Parameter to send to ODAMS</small>
+                </div>
+                <div class="form-group">
+                    <label>Unit <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="unit" placeholder="e.g., °C">
+                </div>
+            </div>
+        </div>
+    `;
+
+    list.appendChild(card);
+}
+
 function removeSensor(btn) {
     const card = btn.closest('.sensor-config-card');
     if (card && confirm('Are you sure you want to remove this sensor?')) {
@@ -397,6 +634,10 @@ function saveSensors() {
             isValid = sensor.ip && sensor.slave_id && sensor.register_type &&
                      sensor.register_address !== undefined && sensor.data_type &&
                      sensor.param_name && sensor.unit;
+        } else if (type === 'modbus_rtu') {
+            isValid = sensor.slave_id && sensor.register_type &&
+                     sensor.register_address !== undefined && sensor.data_type &&
+                     sensor.param_name && sensor.unit;
         }
 
         if (isValid) {
@@ -409,10 +650,24 @@ function saveSensors() {
         return;
     }
 
+    // Collect RTU device configuration
+    let rtuDevice = null;
+    const rtuPort = document.getElementById('rtu-port');
+    if (rtuPort && rtuPort.value.trim()) {
+        rtuDevice = {
+            port: rtuPort.value.trim(),
+            baudrate: parseInt(document.getElementById('rtu-baudrate').value),
+            parity: document.getElementById('rtu-parity').value,
+            bytesize: parseInt(document.getElementById('rtu-bytesize').value),
+            stopbits: parseInt(document.getElementById('rtu-stopbits').value),
+            timeout: parseInt(document.getElementById('rtu-timeout').value)
+        };
+    }
+
     fetch('/api/save_sensors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sensors })
+        body: JSON.stringify({ sensors, rtu_device: rtuDevice })
     })
     .then(r => r.json())
     .then(data => {
