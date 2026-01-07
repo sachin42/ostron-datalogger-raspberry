@@ -61,15 +61,23 @@ sudo systemctl stop datalogger
 
 ### Threading Model
 
-The application uses a multi-threaded architecture:
+The application uses a multi-threaded architecture with data averaging:
 
 1. **Main Thread**: Flask web server (port 9999) for admin interface
-2. **Logger Thread** ([modules/threads.py:42](modules/threads.py#L42)): Background data collection and transmission
+2. **Data Collection Thread** ([modules/threads.py:20](modules/threads.py#L20)): Continuous sensor data sampling
+   - Production mode (DEV_MODE=false): Fetches every 30 seconds
+   - Development mode (DEV_MODE=true): Fetches every 10 seconds
+   - Stores readings in memory for averaging
+   - Runs independently from transmission schedule
+3. **Logger Thread** ([modules/threads.py:88](modules/threads.py#L88)): Sends averaged data to server
    - Production mode (DEV_MODE=false): 15-minute aligned intervals (XX:00, XX:15, XX:30, XX:45)
    - Development mode (DEV_MODE=true): 1-minute aligned intervals (XX:00, XX:01, XX:02, ...)
-   - Set DEV_MODE in .env file to control behavior
-3. **Heartbeat Thread** ([modules/threads.py:20](modules/threads.py#L20)): IP reporting every 30 minutes
-4. **Retry Queue Thread** ([modules/queue.py:40](modules/queue.py#L40)): Dynamic background worker (spawned as needed)
+   - Calculates average of collected samples and sends to server
+   - Production: ~30 samples per send (30s × 30 = 15 minutes)
+   - Development: ~6 samples per send (10s × 6 = 1 minute)
+   - Clears collected data after sending
+4. **Heartbeat Thread** ([modules/threads.py:66](modules/threads.py#L66)): IP reporting every 30 minutes
+5. **Retry Queue Thread** ([modules/queue.py:40](modules/queue.py#L40)): Dynamic background worker (spawned as needed)
    - Triggered automatically after successful send
    - Processes failed queue in FIFO order
    - Stops on first error (4xx/5xx or network failure)
@@ -81,16 +89,19 @@ The application uses a multi-threaded architecture:
 
 ```
 modules/
-├── config.py        # Environment config (.env) and sensor config (sensors.json) management
-├── status.py        # In-memory status tracking (no file persistence)
-├── threads.py       # Background threads (logger_thread, heartbeat_thread)
-├── network.py       # Data fetching, server transmission, error reporting
-├── crypto.py        # AES encryption + RSA signature generation
-├── payload.py       # JSON payload construction
-├── queue.py         # Failed transmission queue with retry logic
-├── utils.py         # Timestamp alignment utilities
-├── routes.py        # Flask web routes (/health, /test_fetch, /test_send)
-└── constants.py     # Shared constants, logging setup
+├── config.py            # Environment config (.env) and sensor config (sensors.json) management
+├── status.py            # In-memory status tracking (no file persistence)
+├── data_collector.py    # Data averaging - collects samples in memory for averaging
+├── threads.py           # Background threads (data_collection, logger, heartbeat)
+├── network.py           # Data fetching, server transmission, error reporting
+├── crypto.py            # AES encryption + RSA signature generation
+├── payload.py           # JSON payload construction
+├── queue.py             # Failed transmission queue with retry logic
+├── utils.py             # Timestamp alignment utilities
+├── routes.py            # Flask web routes (/health, /test_fetch, /test_send)
+├── modbus_fetcher.py    # Modbus TCP sensor data fetching
+├── modbus_rtu_fetcher.py # Modbus RTU (RS485) sensor data fetching
+└── constants.py         # Shared constants, logging setup
 ```
 
 ### Configuration Architecture
@@ -136,6 +147,45 @@ Not persisted to disk, resets on restart:
 
 See [modules/status.py](modules/status.py) for implementation.
 
+### Data Averaging System
+
+The datalogger uses a continuous sampling and averaging approach to provide more stable and representative sensor readings:
+
+#### Sampling Intervals
+
+- **Production Mode** (DEV_MODE=false): Fetches sensor data every **30 seconds**
+- **Development Mode** (DEV_MODE=true): Fetches sensor data every **10 seconds**
+
+#### How It Works
+
+1. **Data Collection Thread** continuously fetches sensor data at the configured interval
+2. Each reading is stored in memory in [modules/data_collector.py](modules/data_collector.py)
+3. When it's time to send data (1-minute or 15-minute aligned), the **Logger Thread**:
+   - Calculates the average of all collected samples for each sensor
+   - Rounds the average to 2 decimal places
+   - Sends the averaged data to the server
+   - Clears the collected samples
+
+#### Sample Counts
+
+- **Production**: ~30 samples per transmission (30 seconds × 30 = 15 minutes)
+- **Development**: ~6 samples per transmission (10 seconds × 6 = 1 minute)
+
+#### Benefits
+
+- **Noise reduction**: Smooths out momentary spikes or dips in sensor readings
+- **More representative data**: Averages capture the true state over the interval
+- **Independent threads**: Data collection continues even if transmission fails
+- **No data loss**: If transmission fails, samples are still being collected for next send
+
+#### Implementation Details
+
+See [modules/data_collector.py](modules/data_collector.py) for the `DataCollector` class that manages:
+- Thread-safe reading storage with locks
+- Average calculation
+- Sample count tracking
+- Clear after transmission
+
 ### Data Flow
 
 1. **Fetch**: HTML page is fetched and parsed (BeautifulSoup) to extract sensor values from `<tr>` tags with specific IDs (`SID`, `MVAL`, `MUNIT`)
@@ -147,13 +197,23 @@ See [modules/status.py](modules/status.py) for implementation.
 
 ### Logging Behavior
 
-**15-Minute Aligned Intervals** (always enabled):
-- Data sent at XX:00, XX:15, XX:30, XX:45
+**Production Mode** (DEV_MODE=false):
+- Samples collected every 30 seconds
+- Averaged data sent at aligned 15-minute intervals (XX:00, XX:15, XX:30, XX:45)
+- ~30 samples averaged per transmission
 - Timestamps aligned to 15-min boundaries via [get_aligned_timestamp_ms()](modules/utils.py#L5)
 - Flag: "U" (upload)
 - Failed sends queued for retry
 
-**Note**: Calibration mode has been removed. Use DEV_MODE in .env for testing with 1-minute intervals.
+**Development Mode** (DEV_MODE=true):
+- Samples collected every 10 seconds
+- Averaged data sent at aligned 1-minute intervals (XX:00, XX:01, XX:02, ...)
+- ~6 samples averaged per transmission
+- Timestamps aligned to 1-min boundaries
+- Flag: "U" (upload)
+- Failed sends queued for retry
+
+**Note**: Calibration mode has been removed. Use DEV_MODE in .env for testing with faster intervals.
 
 ### Error Reporting
 

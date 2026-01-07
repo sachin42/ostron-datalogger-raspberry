@@ -14,6 +14,53 @@ from .network import (
 )
 from .queue import load_queue, save_queue, retry_failed_transmissions
 from .utils import get_aligned_timestamp_ms
+from .data_collector import data_collector
+
+
+def data_collection_thread():
+    """
+    Continuously fetch sensor data and store for averaging
+    DEV_MODE: Every 10 seconds
+    Production: Every 30 seconds
+    """
+    # Check if DEV_MODE is enabled
+    dev_mode = get_env('dev_mode', False)
+    fetch_interval = 10 if dev_mode else 30
+
+    if dev_mode:
+        logger.info(f"Data collection thread started - fetching every {fetch_interval} seconds (DEV_MODE)")
+    else:
+        logger.info(f"Data collection thread started - fetching every {fetch_interval} seconds (Production)")
+
+    while True:
+        try:
+            sensors_config = load_sensors_config()
+
+            # Only collect data if server is running
+            if sensors_config.get('server_running', False):
+                # Fetch sensor data from all sources
+                sensors = fetch_all_sensors(sensors_config)
+
+                if sensors:
+                    # Add readings to collector for averaging
+                    data_collector.add_readings(sensors)
+
+                    reading_counts = data_collector.get_reading_counts()
+                    logger.debug(f"Collected readings - counts: {reading_counts}")
+
+                    # Update fetch success status
+                    expected_count = len(sensors_config.get('sensors', []))
+                    if len(sensors) == expected_count:
+                        status.update_fetch_success()
+                else:
+                    logger.warning("No sensor data collected")
+
+            # Wait for next collection interval
+            time.sleep(fetch_interval)
+
+        except Exception as e:
+            logger.error(f"Error in data collection thread: {e}")
+            time.sleep(fetch_interval)
 
 
 def heartbeat_thread():
@@ -29,9 +76,11 @@ def heartbeat_thread():
 
                 logger.debug(f"Sending heartbeat: {heartbeat_msg}")
                 send_error_to_endpoint("HEARTBEAT", heartbeat_msg)
-
-            # Wait 30 minutes before next heartbeat
-            time.sleep(30 * 60)
+                # Wait 30 minutes before next heartbeat
+                time.sleep(30 * 60)
+            else:
+                # If server not running, check again in 30 seconds
+                time.sleep(30)
 
         except Exception as e:
             logger.error(f"Error in heartbeat thread: {e}")
@@ -89,16 +138,21 @@ def logger_thread():
                     continue
 
             if should_send:
-                # Fetch new data from all sensor types
-                sensors = fetch_all_sensors(sensors_config)
+                # Get averaged sensor data from data collector
+                reading_counts = data_collector.get_reading_counts()
+                averages = data_collector.get_averages_and_clear()
 
-                if sensors:
-                    # Update fetch success
-                    expected_count = len(sensors_config.get('sensors', []))
-                    if len(sensors) == expected_count:
-                        status.update_fetch_success()
-
-                    logger.debug(f"Fetched sensors: {sensors}")
+                if averages:
+                    # Build sensors dict with averaged values and units from config
+                    sensors = {}
+                    for sensor in sensors_config.get('sensors', []):
+                        param_name = sensor.get('param_name')
+                        if param_name in averages:
+                            sensors[param_name] = {
+                                'value': str(round(averages[param_name], 2)),
+                                'unit': sensor.get('unit', '')
+                            }
+                    logger.info(f"Sending averaged data - sample counts: {reading_counts}")
 
                     # Send data (always with aligned timestamps and 'U' flag)
                     success, status_code, text, should_queue = send_to_server(sensors)
@@ -139,6 +193,9 @@ def logger_thread():
                             logger.info(f"Queued failed transmission for retry")
                         else:
                             logger.error(f"Data error - not queuing: {text}")
+                else:
+                    # No averaged data available yet
+                    logger.warning("No averaged data available yet - data collection thread may still be gathering samples")
 
             time.sleep(5)
 

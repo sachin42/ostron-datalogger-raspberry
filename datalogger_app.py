@@ -5,8 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from modules.constants import logger
 from modules.config import load_env_config
-from modules.network import send_error_to_endpoint, get_public_ip
-from modules.threads import logger_thread, heartbeat_thread
+from modules.threads import data_collection_thread, logger_thread, heartbeat_thread
 from modules.routes import register_routes
 
 app = Flask(__name__)
@@ -34,7 +33,11 @@ if __name__ == '__main__':
     logger.info("Loading environment configuration from .env")
     env_config = load_env_config()
 
-    # Start logger thread
+    # Start data collection thread (fetches and averages sensor data)
+    data_collection_thread_obj = threading.Thread(target=data_collection_thread, daemon=True)
+    data_collection_thread_obj.start()
+
+    # Start logger thread (sends averaged data to server)
     logger_thread_obj = threading.Thread(target=logger_thread, daemon=True)
     logger_thread_obj.start()
 
