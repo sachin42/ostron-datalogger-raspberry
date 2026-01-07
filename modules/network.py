@@ -1,8 +1,10 @@
 import json
 import time
+import socket
 import requests
 from datetime import datetime
 from typing import Tuple, Dict, Any
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
 from .constants import IST, logger
@@ -135,6 +137,63 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
     return False, last_status_code, error_msg, True
 
 
+def _fetch_raw_http(url: str, timeout: int = 10) -> str:
+    """
+    Fetch HTML using raw socket connection for devices with malformed HTTP responses.
+    Some industrial devices send HTML directly without proper HTTP status line.
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname
+    port = parsed.port or 80
+    path = parsed.path or '/'
+
+    # Create socket connection
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
+
+    try:
+        sock.connect((host, port))
+
+        # Send HTTP GET request
+        request = f"GET {path} HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n"
+        sock.sendall(request.encode('utf-8'))
+
+        # Read response
+        response_data = b''
+        while True:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            response_data += chunk
+
+        # Decode response
+        try:
+            response_text = response_data.decode('utf-8')
+        except UnicodeDecodeError:
+            response_text = response_data.decode('latin-1')
+
+        # Check if response has HTTP headers
+        if '\r\n\r\n' in response_text:
+            # Split headers and body
+            parts = response_text.split('\r\n\r\n', 1)
+            if len(parts) == 2:
+                headers, body = parts
+                # Check if first line looks like HTTP status
+                if headers.startswith('HTTP/') or headers.startswith('<!DOCTYPE'):
+                    # If it starts with <!DOCTYPE, the device sent HTML without headers
+                    if headers.startswith('<!DOCTYPE'):
+                        return response_text  # Return full response as HTML
+                    else:
+                        return body  # Return body after headers
+            return response_text
+        else:
+            # No headers separator found, assume entire response is HTML
+            return response_text
+
+    finally:
+        sock.close()
+
+
 def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
     """Fetch sensor data from webpage"""
     try:
@@ -143,9 +202,19 @@ def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
             with open(file_path, 'r', encoding='utf-8') as f:
                 html = f.read()
         else:
-            response = requests.get(datapage_url, timeout=10)
-            response.raise_for_status()
-            html = response.text
+            try:
+                response = requests.get(datapage_url, timeout=10)
+                response.raise_for_status()
+                html = response.text
+            except Exception as req_error:
+                # Handle malformed HTTP responses from industrial devices
+                # Some devices send HTML directly without proper HTTP headers
+                error_str = str(req_error)
+                if 'BadStatusLine' in error_str or 'Connection aborted' in error_str:
+                    logger.warning(f"Device sent malformed HTTP response, using raw socket: {req_error}")
+                    html = _fetch_raw_http(datapage_url)
+                else:
+                    raise
 
         soup = BeautifulSoup(html, 'html.parser')
         sensors = {}
@@ -174,8 +243,7 @@ def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
         if hasattr(e, 'response') and e.response is not None:
             error_msg = f"HTTP {e.response.status_code}: {str(e)}"
         logger.error(f"Error fetching data: {error_msg}")
-        send_error_to_endpoint("FETCH_ERROR", error_msg,
-                               {'http_status': e.response.status_code if hasattr(e, 'response') and e.response else None})
+        send_error_to_endpoint("FETCH_ERROR", error_msg)
         return {}
     except Exception as e:
         error_msg = f"Parsing error: {str(e)}"

@@ -1,25 +1,26 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
+
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	<meta http-equiv="refresh" content="5"/>
 	<meta http-equiv="cache-control" content="no-cache"/>
 	<meta name="viewport" content="width=device-width"/>
-	<title>IQ WEB CONNECT</title>
+	<title>IQS WebServer</title>
 	<style type="text/css">
 		body {font-family: Tahoma, Verdana, Arial, sans-serif; font-size: 0.8em;}
+		table {/*font-size: 0.8em;*/ /*font-family: monospace;*/}
 		.CaptionRow {font-weight:bold; background: #EFF3EB;}
 		.OddRow {background: #EFF3EB;}
-		.capitals {font-variant: small-caps;}
 	</style>
 </head>
-<body><h1 class="capitals">IQ WEB Connect</h1>
+<body><h1>IQ SENSOR NET web server</h1>
 
 <p>
-Controller: TC2020 3G-18361368<br />
-Serial: 18361368<br />
-Software: 3.76<br />
-Time: 27 Dec 2025 14:21:04
+Controller: MIQ-TC-17271341<br />
+Serial: 17271341<br />
+Software: 4.04<br />
+Time: 07 Jan 2026 16:23:59
 </p>
 
 <h2>Overview sensors</h2>
@@ -51,73 +52,82 @@ Time: 27 Dec 2025 14:21:04
 	<tr class="EvenRow">
 		<td id="SID1">S01</td>
 		<td id="STATE1">Measuring</td>
-		<td id="TYPE1">CarboVis701 IQ</td>
-		<td id="SERNO1">18300458</td>
-		<td id="NAME1">18300458</td>
-		<td id="MVAL1">10</td>
-		<td id="MUNIT1">mg/l</td>
-		<td id="MPARA1">BOD</td>
-		<td id="SVAL1">874</td>
-		<td id="SUNIT1">#</td>
+		<td id="TYPE1">MIQIC2 REC1</td>
+		<td id="SERNO1">17130140</td>
+		<td id="NAME1">17130140</td>
+		<td id="MVAL1">0.01</td>
+		<td id="MUNIT1">m3/h</td>
+		<td id="MPARA1">FLOW</td>
+		<td id="SVAL1">4.00</td>
+		<td id="SUNIT1">mA</td>
 		<td id="INFO1">0x0</td>
 	</tr>
 	<tr class="OddRow">
 		<td id="SID2">S02</td>
 		<td id="STATE2">Measuring</td>
-		<td id="TYPE2">MIQIC2 REC2</td>
-		<td id="SERNO2">15240713</td>
-		<td id="NAME2">15240713</td>
-		<td id="MVAL2">34.1</td>
-		<td id="MUNIT2">m3/h</td>
-		<td id="MPARA2">flow</td>
-		<td id="SVAL2">6.73</td>
-		<td id="SUNIT2">mA</td>
+		<td id="TYPE2">SensoLyt700IQ</td>
+		<td id="SERNO2">17501977</td>
+		<td id="NAME2">17501977</td>
+		<td id="MVAL2">7.57</td>
+		<td id="MUNIT2"></td>
+		<td id="MPARA2">pH</td>
+		<td id="SVAL2">14.9</td>
+		<td id="SUNIT2">ï¿½C</td>
 		<td id="INFO2">0x0</td>
 	</tr>
 	<tr class="EvenRow">
-		<td id="SID3">S03</td>
-		<td id="STATE3">Measuring</td>
-		<td id="TYPE3">MIQIC2 REC1</td>
-		<td id="SERNO3">15240713</td>
-		<td id="NAME3">15240713</td>
-		<td id="MVAL3">7.52</td>
-		<td id="MUNIT3">pH</td>
-		<td id="MPARA3">pH</td>
-		<td id="SVAL3">12.60</td>
-		<td id="SUNIT3">mA</td>
-		<td id="INFO3">0x0</td>
+		<td id="SID5">S05</td>
+		<td id="STATE5">Measuring</td>
+		<td id="TYPE5">MIQIC2 REC2</td>
+		<td id="SERNO5">17130140</td>
+		<td id="NAME5">17130140</td>
+		<td id="MVAL5">OFL</td>
+		<td id="MUNIT5">m3/h</td>
+		<td id="MPARA5">FLOW</td>
+		<td id="SVAL5">0.00</td>
+		<td id="SUNIT5">mA</td>
+		<td id="INFO5">0x0</td>
 	</tr>
 	<tr class="OddRow">
-		<td id="SID6">S06</td>
-		<td id="STATE6">Measuring</td>
-		<td id="TYPE6">CarboVis701 IQ</td>
-		<td id="SERNO6">18300458</td>
-		<td id="NAME6">18300458</td>
-		<td id="MVAL6">34</td>
-		<td id="MUNIT6">mg/l</td>
-		<td id="MPARA6">CODto</td>
-		<td id="SVAL6">874</td>
-		<td id="SUNIT6">#</td>
-		<td id="INFO6">0x0</td>
-	</tr>
-	<tr class="EvenRow">
 		<td id="SID7">S07</td>
 		<td id="STATE7">Measuring</td>
-		<td id="TYPE7">SolidVis701 IQ</td>
-		<td id="SERNO7">18300458</td>
-		<td id="NAME7">18300458</td>
-		<td id="MVAL7">17</td>
+		<td id="TYPE7">CarboVis705 IQ</td>
+		<td id="SERNO7">20221706</td>
+		<td id="NAME7">20221706</td>
+		<td id="MVAL7">4.2</td>
 		<td id="MUNIT7">mg/l</td>
-		<td id="MPARA7">TSS</td>
-		<td id="SVAL7">1016</td>
+		<td id="MPARA7">CODto</td>
+		<td id="SVAL7">13.4</td>
 		<td id="SUNIT7">#</td>
 		<td id="INFO7">0x0</td>
 	</tr>
+	<tr class="EvenRow">
+		<td id="SID8">S08</td>
+		<td id="STATE8">Measuring</td>
+		<td id="TYPE8">SolidVis705 IQ</td>
+		<td id="SERNO8">20221706</td>
+		<td id="NAME8">20221706</td>
+		<td id="MVAL8">1.7</td>
+		<td id="MUNIT8">mg/l</td>
+		<td id="MPARA8">TSS</td>
+		<td id="SVAL8">10.3</td>
+		<td id="SUNIT8">#</td>
+		<td id="INFO8">0x0</td>
+	</tr>
+	<tr class="OddRow">
+		<td id="SID9">S09</td>
+		<td id="STATE9">Measuring</td>
+		<td id="TYPE9">CarboVis705 IQ</td>
+		<td id="SERNO9">20221706</td>
+		<td id="NAME9">20221706</td>
+		<td id="MVAL9">0.7</td>
+		<td id="MUNIT9">mg/l</td>
+		<td id="MPARA9">BOD</td>
+		<td id="SVAL9">13.4</td>
+		<td id="SUNIT9">#</td>
+		<td id="INFO9">0x0</td>
+	</tr>
 
 </table>
-
-<p><a title="click to open" href="/Terminal">IQ WEB CONNECT Terminal</a></p>
-<p><a title="click to open" href="/Datalog">IQ WEB CONNECT DatalogTransfer</a></p>
-<p><a title="click to open" href="/Saveload">IQ WEB CONNECT ConfigSaveLoad</a></p>
 </body>
 </html>

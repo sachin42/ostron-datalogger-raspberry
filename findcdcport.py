@@ -59,7 +59,7 @@ def send_at(port, command, wait=1):
         return None
 
 
-def setup(apn="airtelIot"):
+def setup(apn="airtelgprs.com"):
     """Quick setup sequence"""
     port = find_modem_port()
     print(f"Using port: {port}\n")
@@ -73,5 +73,5 @@ def setup(apn="airtelIot"):
 
 
 if __name__ == "__main__":
-    apn = sys.argv[1] if len(sys.argv) > 1 else "airtelIot"
+    apn = sys.argv[1] if len(sys.argv) > 1 else "airtelgprs.com"
     setup(apn)

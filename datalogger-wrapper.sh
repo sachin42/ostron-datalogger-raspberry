@@ -10,20 +10,6 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-cd /home/logger/datalogger
-
-if [ ! -d "$VENV_DIR" ]; then
-    log "ERROR: Virtual environment not found at $VENV_DIR"
-    exit 1
-fi
-
-log "Activating virtual environment at $VENV_DIR"
-source "$VENV_DIR/bin/activate"
-
-exec $PYTHON_CMD $FIND_SCRIPT airtelgprs.com &
-
-sleep 10
-
 check_eth0_ip() {
     ip -4 addr show eth0 | grep -q "inet "
     return $?
@@ -49,7 +35,7 @@ wait_for_network() {
             log "eth0 has IP: $ETH0_IP"
             
             if check_eth1_internet; then
-                log "eth1 has internet connectivity"
+                log "usb0 has internet connectivity"
                 return 0
             else
                 log "eth0 ready but eth1 no internet (attempt $((attempt+1))/$max_attempts)"
@@ -67,7 +53,22 @@ wait_for_network() {
     return 1
 }
 
-log "=== DataLogger Startup Script ==="
+cd /home/logger/datalogger
+
+if [ ! -d "$VENV_DIR" ]; then
+    log "ERROR: Virtual environment not found at $VENV_DIR"
+    exit 1
+fi
+
+log "Activating virtual environment at $VENV_DIR"
+source "$VENV_DIR/bin/activate"
+
+if check_eth1_internet; then
+    log "usb0 has internet connectivity"
+else
+    exec $PYTHON_CMD $FIND_SCRIPT &
+    sleep 10
+fi
 
 wait_for_network
 
@@ -75,5 +76,4 @@ log "Waiting 30 seconds before starting DataLogger..."
 sleep 30
 
 log "Starting DataLogger application..."
-
 exec $PYTHON_CMD $APP_SCRIPT

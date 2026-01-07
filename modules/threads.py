@@ -9,7 +9,6 @@ from .crypto import encrypt_payload
 from .payload import build_plain_payload
 from .network import (
     send_to_server,
-    fetch_sensor_data,
     fetch_all_sensors,
     send_error_to_endpoint
 )
