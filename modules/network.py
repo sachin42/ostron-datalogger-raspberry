@@ -46,7 +46,7 @@ def send_error_to_endpoint(tag: str, error_msg: str) -> bool:
         else:
             logger.debug(f"Sending heartbeat to endpoint: {error_message}")
 
-        response = requests.post(endpoint, headers=headers, data=data, timeout=10)
+        response = requests.post(endpoint, headers=headers, data=data, timeout=90)
         logger.debug(f"Endpoint response: {response.status_code} - {response.text}")
 
         return response.status_code == 200
@@ -94,28 +94,42 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
 
             logger.info(f"Attempt {attempt + 1}/{max_retries} - Plain JSON: {plain_json}")
 
-            response = requests.post(endpoint, data=encrypted_payload,
-                                     headers=headers, timeout=20)
+            response = requests.post(endpoint, data=encrypted_payload, headers=headers, timeout=90)
             logger.info(f"Send status: {response.status_code} - {response.text}")
 
             last_response = response.text
             last_status_code = response.status_code
 
             success = False
+            should_queue = False
+
             if response.status_code == 200:
                 try:
                     data = json.loads(response.text.strip())
                     success = data.get('msg') == 'success' and data.get('status') == 1
+
+                    # If not success, check if it's ODAMS status 10 (server error, should queue)
+                    if not success:
+                        status_code = data.get('status')
+                        if status_code == 10:
+                            # ODAMS status 10 - server error, should queue for retry
+                            should_queue = True
+                            logger.error(f"ODAMS status 10 (failed): {data.get('msg', 'Unknown error')} - queuing for retry")
+                        else:
+                            # Other error status - data error, don't queue
+                            logger.error(f"Data error - ODAMS status {status_code}: {response.text}")
+                            should_queue = False
                 except json.JSONDecodeError:
-                    pass
+                    # Malformed JSON - data error, don't queue
+                    logger.error(f"Data error - malformed JSON response: {response.text}")
+                    should_queue = False
 
             if success:
                 return True, response.status_code, response.text, False
 
-            # 200 but wrong response - data error, don't queue, don't retry
+            # 200 but not success - check if should queue
             if response.status_code == 200:
-                logger.error(f"Data error - 200 OK but wrong response: {response.text}")
-                return False, response.status_code, response.text, False
+                return False, response.status_code, response.text, should_queue
 
             # Don't retry on client errors (4xx), but DO queue
             if 400 <= response.status_code < 500:
@@ -211,7 +225,7 @@ def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
                 # Some devices send HTML directly without proper HTTP headers
                 error_str = str(req_error)
                 if 'BadStatusLine' in error_str or 'Connection aborted' in error_str:
-                    logger.warning(f"Device sent malformed HTTP response, using raw socket: {req_error}")
+                    logger.debug(f"Device sent malformed HTTP response, using raw socket: {req_error}")
                     html = _fetch_raw_http(datapage_url)
                 else:
                     raise

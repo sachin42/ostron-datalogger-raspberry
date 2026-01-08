@@ -73,24 +73,38 @@ def _retry_queue_worker():
                     "signature": signature
                 }
 
-                response = requests.post(endpoint, data=item['encrypted_payload'],
-                                         headers=headers, timeout=20)
+                response = requests.post(endpoint, data=item['encrypted_payload'], headers=headers, timeout=90)
                 logger.debug(f"Retry send status: {response.status_code} - {response.text}")
 
-                # Remove from queue if 200 (even with wrong response - data error won't fix itself)
                 if response.status_code == 200:
-                    queue.pop(0)
+                    remove_from_queue = False
                     try:
                         data = json.loads(response.text.strip())
                         if data.get('msg') == 'success' and data.get('status') == 1:
+                            # Success - remove from queue
                             logger.info(f"Successfully sent queued data from {item['timestamp']}")
+                            remove_from_queue = True
                         else:
-                            logger.warning(f"Got 200 but wrong response for queued data - removing from queue (data error): {response.text}")
+                            # Check if it's ODAMS status 10 (server error, should keep in queue)
+                            status_code = data.get('status')
+                            if status_code == 10:
+                                # ODAMS status 10 - server error, keep in queue, stop retry (will retry later)
+                                logger.error(f"ODAMS status 10 (failed) for queued data - keeping in queue: {data.get('msg', 'Unknown error')}")
+                                break  # Stop retry thread, keep item in queue
+                            else:
+                                # Other error status - data error, remove from queue
+                                logger.warning(f"Data error for queued data (status {status_code}) - removing from queue: {response.text}")
+                                remove_from_queue = True
                     except json.JSONDecodeError:
-                        logger.warning(f"Got 200 but invalid JSON for queued data - removing from queue (data error)")
+                        # Malformed JSON - data error, remove from queue
+                        logger.warning(f"Malformed JSON for queued data - removing from queue")
+                        remove_from_queue = True
 
-                    save_queue(queue[-100:])
-                    continue  # Try next item
+                    if remove_from_queue:
+                        queue.pop(0)
+                        save_queue(queue[-100:])
+                        continue  # Try next item
+                    # else: break was already called above
 
                 else:
                     # Non-200 response (4xx/5xx) - stop retrying, exit thread
