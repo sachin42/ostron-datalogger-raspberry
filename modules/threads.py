@@ -155,7 +155,7 @@ def logger_thread():
                     logger.info(f"Sending averaged data - sample counts: {reading_counts}")
 
                     # Send data (always with aligned timestamps and 'U' flag)
-                    success, status_code, text, should_queue = send_to_server(sensors)
+                    success, status_code, text, should_queue, encrypted_payload, ts = send_to_server(sensors)
 
                     status.increment_sends()
 
@@ -179,15 +179,12 @@ def logger_thread():
                             station_id = get_env('station_id', '')
                             token_id = get_env('token_id', '')
 
-                            plain_json = build_plain_payload(sensors, device_id, station_id)
-                            encrypted_payload = encrypt_payload(plain_json, token_id)
                             # Use same alignment as build_plain_payload
-                            aligned_ts = get_aligned_timestamp_ms(alignment_minutes)
                             queue = load_queue()
                             queue.append({
                                 'encrypted_payload': encrypted_payload,
                                 'timestamp': datetime.now(IST).isoformat(),
-                                'aligned_ts': aligned_ts
+                                'aligned_ts': ts
                             })
                             save_queue(queue[-100:])  # Keep last 100
                             logger.info(f"Queued failed transmission for retry")

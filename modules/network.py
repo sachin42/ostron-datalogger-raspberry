@@ -56,12 +56,12 @@ def send_error_to_endpoint(tag: str, error_msg: str) -> bool:
         return False
 
 
-def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) -> Tuple[bool, int, str, bool]:
+def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) -> Tuple[bool, int, str, bool, str, int]:
     """
     Send data to server with retry logic
 
     Returns:
-        Tuple[bool, int, str, bool]: (success, status_code, response_text, should_queue)
+        Tuple[bool, int, str, bool, str, int]: (success, status_code, response_text, should_queue, encrypted_payload, timestamp)
         - should_queue = True if data should be queued for retry (4xx or 5xx after retries)
         - should_queue = False if it's a data error (200 with wrong response)
     """
@@ -70,28 +70,26 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
 
     if not sensors:
         logger.warning("No sensor data to send")
-        return False, 0, "No data", False
+        return False, 0, "No data", False, "", 0
 
     device_id = get_env('device_id', '')
     station_id = get_env('station_id', '')
     token_id = get_env('token_id', '')
     public_key_pem = get_env('public_key', '')
 
-    plain_json = build_plain_payload(sensors, device_id, station_id)
+    plain_json, ts = build_plain_payload(sensors, device_id, station_id)
+    encrypted_payload = encrypt_payload(plain_json, token_id)
+    signature = generate_signature(token_id, public_key_pem)
+    headers = {
+                "Content-Type": "text/plain",
+                "X-Device-Id": device_id,
+                "signature": signature
+    }
     last_response = None
     last_status_code = 0
 
     for attempt in range(max_retries):
         try:
-            encrypted_payload = encrypt_payload(plain_json, token_id)
-            signature = generate_signature(token_id, public_key_pem)
-
-            headers = {
-                "Content-Type": "text/plain",
-                "X-Device-Id": device_id,
-                "signature": signature
-            }
-
             logger.info(f"Attempt {attempt + 1}/{max_retries} - Plain JSON: {plain_json}")
 
             response = requests.post(endpoint, data=encrypted_payload, headers=headers, timeout=90)
@@ -125,17 +123,15 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
                     should_queue = False
 
             if success:
-                return True, response.status_code, response.text, False
+                return True, response.status_code, response.text, False, encrypted_payload, ts
 
             # 200 but not success - check if should queue
             if response.status_code == 200:
-                return False, response.status_code, response.text, should_queue
-
+                return False, response.status_code, response.text, should_queue, encrypted_payload, ts
             # Don't retry on client errors (4xx), but DO queue
             if 400 <= response.status_code < 500:
                 logger.error(f"Client error {response.status_code}: {response.text}")
-                return False, response.status_code, response.text, True
-
+                return False, response.status_code, response.text, True, encrypted_payload, ts
             # Server errors (5xx) or other - retry with exponential backoff
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)
@@ -148,7 +144,7 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
     # All retries failed - queue for later
     error_msg = last_response if last_response else "Max retries exceeded - No response from server"
     logger.error(f"All retries failed: {error_msg}")
-    return False, last_status_code, error_msg, True
+    return False, last_status_code, error_msg, True, encrypted_payload, ts
 
 
 def _fetch_raw_http(url: str, timeout: int = 10) -> str:
