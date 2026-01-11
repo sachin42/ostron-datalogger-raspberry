@@ -7,6 +7,8 @@ from Crypto.Util.Padding import unpad
 import json
 import os
 from dotenv import load_dotenv
+from datetime import datetime
+import pytz
 
 app = Flask(__name__)
 
@@ -16,6 +18,10 @@ TOKEN_ID = os.getenv('TOKEN_ID', 'Hvg_LrxeePXexh7TM76jQqWsWGRV4M4gvX1_tvKDMN4=')
 DEVICE_ID = os.getenv('DEVICE_ID', 'device_7025')
 STATION_ID = os.getenv('STATION_ID', 'station_8203')
 PUBLIC_KEY_PEM = os.getenv('PUBLIC_KEY', '')
+DEV_MODE = os.getenv('DEV_MODE', 'false').lower() in ('true', '1', 'yes')
+
+# Constants
+IST = pytz.timezone("Asia/Kolkata")
 
 # Server configuration (can be changed via web UI)
 server_config = {
@@ -95,6 +101,135 @@ def validate_payload(data, device_id, station_id):
         errors.append(f"Validation error: {e}")
 
     return errors
+
+
+def validate_timestamp_alignment(timestamp_ms):
+    """
+    Validate timestamp alignment (Status 111)
+    Production: Must align to 15-minute boundaries (XX:00, XX:15, XX:30, XX:45)
+    Development: Must align to 1-minute boundaries
+    """
+    try:
+        dt = datetime.fromtimestamp(timestamp_ms / 1000, IST)
+        alignment_minutes = 1 if DEV_MODE else 15
+
+        # Check if minute is aligned
+        if dt.minute % alignment_minutes != 0:
+            return False, f"Timestamp not aligned to {alignment_minutes}-minute boundary: {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+
+        # Check if seconds and microseconds are zero
+        if dt.second != 0 or dt.microsecond != 0:
+            return False, f"Timestamp has non-zero seconds/microseconds: {dt.strftime('%Y-%m-%d %H:%M:%S.%f')}"
+
+        return True, None
+    except Exception as e:
+        return False, f"Invalid timestamp format: {e}"
+
+
+def validate_timestamp_backdate(timestamp_ms):
+    """Validate timestamp is not older than 7 days (Status 117)"""
+    try:
+        now = datetime.now(IST)
+        now_ms = int(now.timestamp() * 1000)
+
+        # Check if older than 7 days
+        if now_ms - timestamp_ms > 7 * 24 * 60 * 60 * 1000:
+            dt = datetime.fromtimestamp(timestamp_ms / 1000, IST)
+            return False, f"Data older than 7 days: {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+
+        return True, None
+    except Exception as e:
+        return False, f"Invalid timestamp: {e}"
+
+
+def validate_timestamp_future(timestamp_ms):
+    """Validate timestamp is not in the future (Status 118)"""
+    try:
+        now = datetime.now(IST)
+        now_ms = int(now.timestamp() * 1000)
+
+        # Check if future timestamp
+        if timestamp_ms > now_ms:
+            dt = datetime.fromtimestamp(timestamp_ms / 1000, IST)
+            return False, f"Future timestamp not allowed: {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+
+        return True, None
+    except Exception as e:
+        return False, f"Invalid timestamp: {e}"
+
+
+def validate_parameters(params):
+    """
+    Validate parameter structure (Status 119)
+    Each parameter must have: parameter, value, unit, timestamp, flag
+    """
+    required_fields = ['parameter', 'value', 'unit', 'timestamp', 'flag']
+
+    for idx, param in enumerate(params):
+        for field in required_fields:
+            if field not in param:
+                return False, f"Parameter {idx} missing required field: {field}"
+
+        # Validate timestamp is a number
+        try:
+            int(param['timestamp'])
+        except (ValueError, TypeError):
+            return False, f"Parameter {idx} has invalid timestamp: {param.get('timestamp')}"
+
+    return True, None
+
+
+def validate_multiple_stations(data):
+    """Validate only one station in payload (Status 120)"""
+    try:
+        if 'data' not in data or not isinstance(data['data'], list):
+            return False, "Invalid payload structure"
+
+        # Collect all unique station IDs
+        stations = set()
+        for item in data['data']:
+            station_id = item.get('stationId')
+            if station_id:
+                stations.add(station_id)
+
+        if len(stations) > 1:
+            return False, f"Multiple stations found: {', '.join(stations)}"
+
+        return True, None
+    except Exception as e:
+        return False, f"Validation error: {e}"
+
+
+def validate_station_device_mapping(data):
+    """
+    Validate station and device mapping exists (Status 121)
+    Payload must have stationId and deviceId in proper structure
+    """
+    try:
+        if 'data' not in data or not isinstance(data['data'], list) or len(data['data']) == 0:
+            return False, "Missing data array"
+
+        station_item = data['data'][0]
+
+        # Check stationId exists
+        if 'stationId' not in station_item or not station_item['stationId']:
+            return False, "Missing stationId in payload"
+
+        # Check device_data exists
+        if 'device_data' not in station_item or not isinstance(station_item['device_data'], list):
+            return False, "Missing device_data array"
+
+        if len(station_item['device_data']) == 0:
+            return False, "Empty device_data array"
+
+        # Check deviceId exists
+        device_item = station_item['device_data'][0]
+        if 'deviceId' not in device_item or not device_item['deviceId']:
+            return False, "Missing deviceId in device_data"
+
+        return True, None
+    except Exception as e:
+        return False, f"Validation error: {e}"
 
 @app.route('/')
 def index():
@@ -191,14 +326,90 @@ def index():
 
         <div class="section">
             <h3>📊 ODAMS API Error Codes Reference</h3>
+            <p><strong>Legend:</strong>
+                <span style="color: #28a745;">✓ Actual Validation</span> = Server validates payload and returns error if condition is true |
+                <span style="color: #ffc107;">⚠ Simulation</span> = Error returned only when configured in test mode
+            </p>
             <table>
                 <thead>
-                    <tr><th>Status Code</th><th>Message</th></tr>
+                    <tr><th>Status Code</th><th>Type</th><th>Message</th></tr>
                 </thead>
                 <tbody>
-                    {% for code, msg in api_errors.items() %}
-                    <tr><td>{{ code }}</td><td>{{ msg }}</td></tr>
-                    {% endfor %}
+                    <tr>
+                        <td>10</td>
+                        <td style="color: #ffc107;">⚠ Simulation</td>
+                        <td>{{ api_errors[10] }}</td>
+                    </tr>
+                    <tr>
+                        <td>102</td>
+                        <td style="color: #ffc107;">⚠ Simulation</td>
+                        <td>{{ api_errors[102] }}</td>
+                    </tr>
+                    <tr>
+                        <td>109</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[109] }} (actual decryption test)</td>
+                    </tr>
+                    <tr>
+                        <td>110</td>
+                        <td style="color: #ffc107;">⚠ Simulation</td>
+                        <td>{{ api_errors[110] }}</td>
+                    </tr>
+                    <tr>
+                        <td>111</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[111] }} (checks timestamp alignment)</td>
+                    </tr>
+                    <tr>
+                        <td>112</td>
+                        <td style="color: #ffc107;">⚠ Simulation</td>
+                        <td>{{ api_errors[112] }}</td>
+                    </tr>
+                    <tr>
+                        <td>113</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[113] }} (checks signature header)</td>
+                    </tr>
+                    <tr>
+                        <td>114</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[114] }} (checks X-Device-Id header)</td>
+                    </tr>
+                    <tr>
+                        <td>115</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[115] }} (checks if PUBLIC_KEY exists)</td>
+                    </tr>
+                    <tr>
+                        <td>116</td>
+                        <td style="color: #ffc107;">⚠ Simulation</td>
+                        <td>{{ api_errors[116] }}</td>
+                    </tr>
+                    <tr>
+                        <td>117</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[117] }} (checks 7-day backdate limit)</td>
+                    </tr>
+                    <tr>
+                        <td>118</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[118] }} (checks for future timestamps)</td>
+                    </tr>
+                    <tr>
+                        <td>119</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[119] }} (validates parameter structure)</td>
+                    </tr>
+                    <tr>
+                        <td>120</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[120] }} (checks for multiple stations)</td>
+                    </tr>
+                    <tr>
+                        <td>121</td>
+                        <td style="color: #28a745;">✓ Validation</td>
+                        <td>{{ api_errors[121] }} (validates station/device mapping)</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -210,6 +421,34 @@ def index():
             <p>Configure these endpoints in your .env file:</p>
             <code>ENDPOINT=http://localhost:5000/v1.0/industry/data</code><br>
             <code>ERROR_ENDPOINT_URL=http://localhost:5000/ocms/Cpcb/add_cpcberror</code>
+        </div>
+
+        <div class="section" style="background: #e7f3ff;">
+            <h3>🔍 How Validation Works</h3>
+            <p><strong>Actual Validations (Always Active):</strong></p>
+            <ul>
+                <li><strong>Status 113, 114:</strong> Checks if required headers (signature, X-Device-Id) are present</li>
+                <li><strong>Status 115:</strong> Checks if PUBLIC_KEY is configured in .env file</li>
+                <li><strong>Status 109:</strong> Attempts to decrypt payload using TOKEN_ID from .env - fails if encryption is wrong</li>
+                <li><strong>Status 121:</strong> Validates that payload has proper stationId and deviceId structure</li>
+                <li><strong>Status 120:</strong> Checks if payload contains multiple stations (only one allowed)</li>
+                <li><strong>Status 119:</strong> Validates each parameter has required fields: parameter, value, unit, timestamp, flag</li>
+                <li><strong>Status 117:</strong> Checks if timestamp is older than 7 days (IST timezone)</li>
+                <li><strong>Status 118:</strong> Checks if timestamp is in the future (IST timezone)</li>
+                <li><strong>Status 111:</strong> Validates timestamp alignment:
+                    <ul>
+                        <li>DEV_MODE=true: Must align to 1-minute boundaries (XX:00, XX:01, XX:02, ...)</li>
+                        <li>DEV_MODE=false: Must align to 15-minute boundaries (XX:00, XX:15, XX:30, XX:45)</li>
+                    </ul>
+                </li>
+            </ul>
+            <p><strong>Simulated Errors (Only When Configured):</strong></p>
+            <ul>
+                <li><strong>Status 10, 102, 110, 112, 116:</strong> Use "API Error Response" mode and select the error code</li>
+                <li>These errors will only be returned if you explicitly configure them in the dropdown above</li>
+                <li>If payload passes all validations, then the simulated error will be returned</li>
+            </ul>
+            <p><strong>Current Mode:</strong> DEV_MODE={{ 'true' if dev_mode else 'false' }} (timestamp alignment: {{ '1-minute' if dev_mode else '15-minute' }})</p>
         </div>
 
         <script>
@@ -259,7 +498,8 @@ def index():
                                    token_id=TOKEN_ID,
                                    device_id=DEVICE_ID,
                                    station_id=STATION_ID,
-                                   public_key=PUBLIC_KEY_PEM)
+                                   public_key=PUBLIC_KEY_PEM,
+                                   dev_mode=DEV_MODE)
 
 @app.route('/config', methods=['POST'])
 def update_config():
@@ -336,30 +576,34 @@ def receive_data():
             print(f"\n🔐 Signature Info:")
             print(f"  {sig_info}")
 
-        # Check for missing headers
+        # ========== ACTUAL VALIDATION (not simulated) ==========
+
+        # Status 114: X-Device-Id key is missing in headers
         if not device_id_header:
-            print(f"\n❌ Missing X-Device-Id header")
+            print(f"\n❌ [ACTUAL VALIDATION] Status 114: Missing X-Device-Id header")
+            print(f"{'='*80}\n")
             return jsonify({"status": 114, "msg": API_ERRORS[114]}), 200
 
+        # Status 113: signature key is missing in headers
         if not signature_header:
-            print(f"\n❌ Missing signature header")
+            print(f"\n❌ [ACTUAL VALIDATION] Status 113: Missing signature header")
+            print(f"{'='*80}\n")
             return jsonify({"status": 113, "msg": API_ERRORS[113]}), 200
 
-        # Validate device ID if enabled
-        if server_config['validate_credentials']:
-            if device_id_header != DEVICE_ID:
-                print(f"\n❌ Device ID mismatch:")
-                print(f"  Expected: {DEVICE_ID}")
-                print(f"  Received: {device_id_header}")
-                return jsonify({"status": 116, "msg": API_ERRORS[116]}), 200
+        # Status 115: Public_Key is missing Generate the Key
+        if not PUBLIC_KEY_PEM or PUBLIC_KEY_PEM.strip() == '':
+            print(f"\n❌ [ACTUAL VALIDATION] Status 115: Public key not configured in .env")
+            print(f"{'='*80}\n")
+            return jsonify({"status": 115, "msg": API_ERRORS[115]}), 200
 
-        # Decrypt payload
+        # Status 109: Payload not encrypted properly
         print(f"\n🔓 Decrypting payload...")
         plain_json, decrypt_error = decrypt_payload(encrypted_payload, TOKEN_ID)
 
         if decrypt_error:
-            print(f"❌ Decryption failed: {decrypt_error}")
+            print(f"❌ [ACTUAL VALIDATION] Status 109: Decryption failed: {decrypt_error}")
             print(f"  Raw encrypted (first 100 chars): {encrypted_payload[:100]}...")
+            print(f"{'='*80}\n")
             return jsonify({"status": 109, "msg": API_ERRORS[109]}), 200
 
         # Parse JSON
@@ -372,6 +616,78 @@ def receive_data():
             print(f"❌ JSON parse error: {e}")
             return jsonify({"status": 10, "msg": "failed"}), 200
 
+        # Status 121: The Station and Device Mapping not Found in the Payload
+        valid, error_msg = validate_station_device_mapping(data)
+        if not valid:
+            print(f"\n❌ [ACTUAL VALIDATION] Status 121: {error_msg}")
+            print(f"{'='*80}\n")
+            return jsonify({"status": 121, "msg": API_ERRORS[121]}), 200
+
+        # Status 120: Multiple Station Found in the Payload
+        valid, error_msg = validate_multiple_stations(data)
+        if not valid:
+            print(f"\n❌ [ACTUAL VALIDATION] Status 120: {error_msg}")
+            print(f"{'='*80}\n")
+            return jsonify({"status": 120, "msg": API_ERRORS[120]}), 200
+
+        # Extract parameters for validation
+        try:
+            params = data['data'][0]['device_data'][0].get('params', [])
+            if not params:
+                print(f"\n❌ No parameters found in payload")
+                return jsonify({"status": 119, "msg": API_ERRORS[119]}), 200
+        except (KeyError, IndexError, TypeError) as e:
+            print(f"\n❌ Invalid payload structure: {e}")
+            return jsonify({"status": 10, "msg": "failed"}), 200
+
+        # Status 119: Invalid Parameter
+        valid, error_msg = validate_parameters(params)
+        if not valid:
+            print(f"\n❌ [ACTUAL VALIDATION] Status 119: {error_msg}")
+            print(f"{'='*80}\n")
+            return jsonify({"status": 119, "msg": API_ERRORS[119]}), 200
+
+        # Extract timestamp from first parameter (all should have same timestamp)
+        timestamp_ms = params[0]['timestamp']
+        dt_str = datetime.fromtimestamp(timestamp_ms / 1000, IST).strftime('%Y-%m-%d %H:%M:%S')
+        print(f"\n📅 Timestamp: {timestamp_ms} ({dt_str})")
+
+        # Status 117: Data cannot be pushed beyond 7 days
+        valid, error_msg = validate_timestamp_backdate(timestamp_ms)
+        if not valid:
+            print(f"\n❌ [ACTUAL VALIDATION] Status 117: {error_msg}")
+            print(f"{'='*80}\n")
+            return jsonify({"status": 117, "msg": API_ERRORS[117]}), 200
+
+        # Status 118: Data cannot be pushed for future time
+        valid, error_msg = validate_timestamp_future(timestamp_ms)
+        if not valid:
+            print(f"\n❌ [ACTUAL VALIDATION] Status 118: {error_msg}")
+            print(f"{'='*80}\n")
+            return jsonify({"status": 118, "msg": API_ERRORS[118]}), 200
+
+        # Status 111: Uploaded data is not matching with defined 15 min timeframe
+        valid, error_msg = validate_timestamp_alignment(timestamp_ms)
+        if not valid:
+            alignment = "1-minute" if DEV_MODE else "15-minute"
+            print(f"\n❌ [ACTUAL VALIDATION] Status 111: {error_msg}")
+            print(f"  Expected: {alignment} alignment (DEV_MODE={DEV_MODE})")
+            print(f"{'='*80}\n")
+            return jsonify({"status": 111, "msg": API_ERRORS[111]}), 200
+
+        print(f"\n✅ All validations passed!")
+
+        # ========== CREDENTIAL VALIDATION (if enabled) ==========
+
+        # Validate device ID if enabled
+        if server_config['validate_credentials']:
+            if device_id_header != DEVICE_ID:
+                print(f"\n❌ Status 116: Device ID mismatch:")
+                print(f"  Expected: {DEVICE_ID}")
+                print(f"  Received: {device_id_header}")
+                print(f"{'='*80}\n")
+                return jsonify({"status": 116, "msg": API_ERRORS[116]}), 200
+
         # Validate credentials in payload
         if server_config['validate_credentials']:
             validation_errors = validate_payload(data, DEVICE_ID, STATION_ID)
@@ -381,25 +697,30 @@ def receive_data():
                     print(f"  - {err}")
                 # Return appropriate error based on validation failure
                 if 'Station mismatch' in validation_errors[0]:
+                    print(f"{'='*80}\n")
                     return jsonify({"status": 102, "msg": API_ERRORS[102]}), 200
                 elif 'Device mismatch' in validation_errors[0]:
+                    print(f"{'='*80}\n")
                     return jsonify({"status": 116, "msg": API_ERRORS[116]}), 200
                 else:
+                    print(f"{'='*80}\n")
                     return jsonify({"status": 10, "msg": "failed"}), 200
             else:
                 print(f"\n✅ Credentials validated successfully")
 
+        # ========== SIMULATED ERRORS (configured mode) ==========
+
         # Return response based on configured mode
         if server_config['mode'] == 'http_error':
             http_status = server_config['http_status']
-            print(f"\n❌ Returning HTTP error: {http_status}")
+            print(f"\n⚠️  [SIMULATED] Returning HTTP error: {http_status}")
             print(f"{'='*80}\n")
             return jsonify({"error": f"HTTP {http_status} error"}), http_status
 
         elif server_config['mode'] == 'api_error':
             api_status = server_config['api_status']
             api_msg = API_ERRORS.get(api_status, "Unknown error")
-            print(f"\n⚠️  Returning API error: {api_status} - {api_msg}")
+            print(f"\n⚠️  [SIMULATED] Returning API error: {api_status} - {api_msg}")
             print(f"{'='*80}\n")
             return jsonify({"status": api_status, "msg": api_msg}), 200
 
@@ -424,10 +745,24 @@ if __name__ == '__main__':
     print(f"   DEVICE_ID: {DEVICE_ID}")
     print(f"   STATION_ID: {STATION_ID}")
     print(f"   PUBLIC_KEY: {'Loaded' if PUBLIC_KEY_PEM else 'Not loaded'}")
+    print(f"   DEV_MODE: {DEV_MODE} (timestamp alignment: {'1-minute' if DEV_MODE else '15-minute'})")
     print(f"\n🌐 Web UI: http://localhost:5000")
     print(f"📡 Data Endpoint: http://localhost:5000/v1.0/industry/data")
     print(f"🚨 Error Endpoint: http://localhost:5000/ocms/Cpcb/add_cpcberror")
     print(f"\n💡 Configure the test server behavior via the web UI")
+    print(f"\n✅ Actual Validations (always active):")
+    print(f"   Status 109: Payload encryption")
+    print(f"   Status 111: Timestamp alignment ({'1-min' if DEV_MODE else '15-min'})")
+    print(f"   Status 113: Signature header presence")
+    print(f"   Status 114: X-Device-Id header presence")
+    print(f"   Status 115: Public key existence")
+    print(f"   Status 117: 7-day backdate limit")
+    print(f"   Status 118: Future timestamp check")
+    print(f"   Status 119: Parameter structure")
+    print(f"   Status 120: Multiple stations check")
+    print(f"   Status 121: Station/device mapping")
+    print(f"\n⚠️  Simulated Errors (configure via Web UI):")
+    print(f"   Status 10, 102, 110, 112, 116")
     print("="*80 + "\n")
 
     app.run(host='0.0.0.0', port=5000, debug=False)

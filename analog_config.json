@@ -1,0 +1,86 @@
+{
+  "channels": [
+    {
+      "decimals": 2,
+      "enabled": true,
+      "id": 1,
+      "max_value": 100,
+      "min_value": 0,
+      "name": "Channel 1",
+      "unit": "m\u00b3/hr"
+    },
+    {
+      "decimals": 2,
+      "enabled": true,
+      "id": 2,
+      "max_value": 100,
+      "min_value": 0,
+      "name": "Channel 2",
+      "unit": "m\u00b3/hr"
+    },
+    {
+      "decimals": 2,
+      "enabled": false,
+      "id": 3,
+      "max_value": 100,
+      "min_value": 0,
+      "name": "Channel 3",
+      "unit": "m\u00b3/hr"
+    },
+    {
+      "decimals": 2,
+      "enabled": false,
+      "id": 4,
+      "max_value": 100,
+      "min_value": 0,
+      "name": "Channel 4",
+      "unit": "m\u00b3/hr"
+    },
+    {
+      "decimals": 2,
+      "enabled": false,
+      "id": 5,
+      "max_value": 100,
+      "min_value": 0,
+      "name": "Channel 5",
+      "unit": "m\u00b3/hr"
+    },
+    {
+      "decimals": 2,
+      "enabled": false,
+      "id": 6,
+      "max_value": 100,
+      "min_value": 0,
+      "name": "Channel 6",
+      "unit": "m\u00b3/hr"
+    },
+    {
+      "decimals": 2,
+      "enabled": false,
+      "id": 7,
+      "max_value": 100,
+      "min_value": 0,
+      "name": "Channel 7",
+      "unit": "m\u00b3/hr"
+    },
+    {
+      "decimals": 2,
+      "enabled": false,
+      "id": 8,
+      "max_value": 100,
+      "min_value": 0,
+      "name": "Channel 8",
+      "unit": "m\u00b3/hr"
+    }
+  ],
+  "device": {
+    "baudrate": 9600,
+    "bytesize": 8,
+    "parity": "N",
+    "port": "COM31",
+    "slave_id": 1,
+    "stopbits": 1,
+    "timeout": 1
+  },
+  "read_interval": 2
+}
