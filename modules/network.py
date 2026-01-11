@@ -262,6 +262,88 @@ def fetch_sensor_data(datapage_url: str, config_sensors: dict) -> dict:
         return {}
 
 
+def fetch_analog_sensors(analog_sensors: list) -> Dict[str, Dict[str, Any]]:
+    """
+    Fetch data from analog acquisition server (Waveshare 4-20mA module)
+
+    Args:
+        analog_sensors: List of analog sensor configurations, each with:
+            - server_url: URL of analog acquisition server (e.g., http://192.168.1.100:8000)
+            - channel_id: Channel number (1-8)
+            - param_name: CPCB parameter name
+            - unit: Unit for this parameter (configured in datalogger)
+
+    Returns:
+        Dictionary mapping param_name to {value, unit}
+    """
+    sensors = {}
+
+    try:
+        # Group sensors by server_url for efficient fetching
+        servers = {}
+        for sensor in analog_sensors:
+            server_url = sensor.get('server_url')
+            if server_url:
+                if server_url not in servers:
+                    servers[server_url] = []
+                servers[server_url].append(sensor)
+
+        # Fetch from each server
+        for server_url, server_sensors in servers.items():
+            try:
+                # Fetch all channels from server
+                api_url = f"{server_url.rstrip('/')}/api/channels"
+                logger.debug(f"Fetching analog data from: {api_url}")
+
+                response = requests.get(api_url, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+
+                if not data.get('device_connected', False):
+                    logger.warning(f"Analog server at {server_url} reports device not connected")
+                    continue
+
+                channels = data.get('channels', {})
+
+                # Extract configured sensors
+                for sensor in server_sensors:
+                    channel_id = sensor.get('channel_id')
+                    param_name = sensor.get('param_name')
+                    unit = sensor.get('unit', '')  # Use configured unit from sensors.json
+
+                    if not channel_id or not param_name:
+                        logger.warning(f"Analog sensor missing channel_id or param_name: {sensor}")
+                        continue
+
+                    # Get channel data (channel_id is string in JSON response)
+                    channel_data = channels.get(str(channel_id))
+
+                    if channel_data and channel_data.get('enabled'):
+                        value = channel_data.get('value')
+
+                        if value is not None:
+                            sensors[param_name] = {
+                                'value': str(value),
+                                'unit': unit
+                            }
+                            logger.debug(f"Analog {param_name}: {value} {unit} (from {server_url}, ch{channel_id})")
+                        else:
+                            logger.warning(f"Analog channel {channel_id} has no value")
+                    else:
+                        logger.warning(f"Analog channel {channel_id} not enabled or not found on {server_url}")
+
+            except requests.RequestException as e:
+                logger.error(f"Network error fetching from analog server {server_url}: {e}")
+            except Exception as e:
+                logger.error(f"Error processing analog server {server_url}: {e}")
+
+        return sensors
+
+    except Exception as e:
+        logger.error(f"Error in fetch_analog_sensors: {e}")
+        return {}
+
+
 def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
     """
     Fetch data from all configured sensors (multiple types)
@@ -281,6 +363,7 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
         iq_web_sensors = {}
         modbus_tcp_sensors = []
         modbus_rtu_sensors = []
+        analog_sensors = []
 
         for sensor in sensors_list:
             sensor_type = sensor.get('type', 'iq_web_connect')  # Default to IQ Web for backward compatibility
@@ -299,6 +382,9 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
 
             elif sensor_type == 'modbus_rtu':
                 modbus_rtu_sensors.append(sensor)
+
+            elif sensor_type == 'analog':
+                analog_sensors.append(sensor)
 
         # Fetch IQ Web Connect sensors
         if iq_web_sensors:
@@ -326,6 +412,12 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
                 logger.debug(f"Fetched {len(rtu_data)} Modbus RTU sensors")
             else:
                 logger.warning("RTU device not configured, skipping Modbus RTU sensors")
+
+        # Fetch Analog sensors
+        if analog_sensors:
+            analog_data = fetch_analog_sensors(analog_sensors)
+            all_sensors.update(analog_data)
+            logger.debug(f"Fetched {len(analog_data)} Analog sensors")
 
         logger.debug(f"Total sensors fetched: {len(all_sensors)}")
         return all_sensors

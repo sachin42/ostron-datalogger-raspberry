@@ -15,7 +15,7 @@
         <button class="tab-btn active" data-tab="iq-web">IQ Web Connect</button>
         <button class="tab-btn" data-tab="modbus">Modbus TCP</button>
         <button class="tab-btn" data-tab="rs485">Modbus RTU (RS485)</button>
-        <button class="tab-btn" data-tab="analog" disabled>Analog <span class="badge badge-info">Coming Soon</span></button>
+        <button class="tab-btn" data-tab="analog">Analog</button>
     </div>
 
     <!-- IQ Web Connect Tab -->
@@ -333,9 +333,72 @@
 
     <!-- Analog Tab -->
     <div class="tab-content" id="tab-analog">
-        <div class="empty-state">
-            <h3>Analog Input Support</h3>
-            <p>This feature is coming soon. It will support reading sensor data from analog inputs.</p>
+        <div class="card">
+            <h3>Analog Acquisition Server</h3>
+            <p class="text-muted">Fetch data from Waveshare 4-20mA analog acquisition server via REST API</p>
+
+            <div class="info-box">
+                <strong>📡 How it works:</strong>
+                <ul>
+                    <li>Run <code>analogserver.py</code> on another device (Raspberry Pi, PC, etc.)</li>
+                    <li>Configure 4-20mA sensors with scaling in analog server web UI</li>
+                    <li>Configure analog sensors below with server URL and channel numbers</li>
+                    <li>Data logger will fetch values via HTTP API and send to CPCB</li>
+                </ul>
+                <p class="text-muted">Example server URL: <code>http://192.168.1.100:8000</code> or <code>http://localhost:8000</code> for testing</p>
+            </div>
+
+            <div id="analog-sensors-list">
+                {% for sensor in sensors if sensor.get('type') == 'analog' %}
+                <div class="sensor-config-card analog-card" data-type="analog" data-index="{{ loop.index0 }}">
+                    <div class="sensor-config-header">
+                        <h4>Analog Sensor {{ loop.index }}</h4>
+                        <button onclick="removeSensor(this)" class="btn btn-danger btn-sm">Remove</button>
+                    </div>
+                    <div class="sensor-config-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Server URL <span class="required">*</span></label>
+                                <input type="text" class="form-control" name="server_url"
+                                       value="{{ sensor.server_url }}" placeholder="http://192.168.1.100:8000">
+                                <small class="form-text">URL of analog acquisition server</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Channel ID <span class="required">*</span></label>
+                                <select class="form-control" name="channel_id">
+                                    <option value="1" {% if sensor.channel_id == 1 %}selected{% endif %}>Channel 1</option>
+                                    <option value="2" {% if sensor.channel_id == 2 %}selected{% endif %}>Channel 2</option>
+                                    <option value="3" {% if sensor.channel_id == 3 %}selected{% endif %}>Channel 3</option>
+                                    <option value="4" {% if sensor.channel_id == 4 %}selected{% endif %}>Channel 4</option>
+                                    <option value="5" {% if sensor.channel_id == 5 %}selected{% endif %}>Channel 5</option>
+                                    <option value="6" {% if sensor.channel_id == 6 %}selected{% endif %}>Channel 6</option>
+                                    <option value="7" {% if sensor.channel_id == 7 %}selected{% endif %}>Channel 7</option>
+                                    <option value="8" {% if sensor.channel_id == 8 %}selected{% endif %}>Channel 8</option>
+                                </select>
+                                <small class="form-text">Waveshare channel (1-8)</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Parameter Name <span class="required">*</span></label>
+                                <input type="text" class="form-control" name="param_name"
+                                       value="{{ sensor.param_name }}" placeholder="e.g., flow">
+                                <small class="form-text">Parameter to send to ODAMS</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Unit <span class="required">*</span></label>
+                                <input type="text" class="form-control" name="unit"
+                                       value="{{ sensor.unit }}" placeholder="e.g., m³/hr">
+                                <small class="form-text">Unit for this parameter</small>
+                            </div>
+                        </div>
+                        <div class="info-box">
+                            <small><strong>Note:</strong> Unit should match what's configured in analog server for this channel.</small>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <button onclick="addAnalogSensor()" class="btn btn-primary">+ Add Analog Sensor</button>
         </div>
     </div>
 </div>
@@ -371,6 +434,8 @@ function addSensor() {
         addModbusSensor();
     } else if (activeTab === 'rs485') {
         addRTUSensor();
+    } else if (activeTab === 'analog') {
+        addAnalogSensor();
     }
 }
 
@@ -595,6 +660,60 @@ function addRTUSensor() {
     list.appendChild(card);
 }
 
+function addAnalogSensor() {
+    const list = document.getElementById('analog-sensors-list');
+    const index = list.querySelectorAll('.sensor-config-card').length;
+
+    const card = document.createElement('div');
+    card.className = 'sensor-config-card analog-card';
+    card.dataset.type = 'analog';
+    card.dataset.index = index;
+    card.innerHTML = `
+        <div class="sensor-config-header">
+            <h4>Analog Sensor ${index + 1}</h4>
+            <button onclick="removeSensor(this)" class="btn btn-danger btn-sm">Remove</button>
+        </div>
+        <div class="sensor-config-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Server URL <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="server_url" placeholder="http://192.168.1.100:8000">
+                    <small class="form-text">URL of analog acquisition server</small>
+                </div>
+                <div class="form-group">
+                    <label>Channel ID <span class="required">*</span></label>
+                    <select class="form-control" name="channel_id">
+                        <option value="1">Channel 1</option>
+                        <option value="2">Channel 2</option>
+                        <option value="3">Channel 3</option>
+                        <option value="4">Channel 4</option>
+                        <option value="5">Channel 5</option>
+                        <option value="6">Channel 6</option>
+                        <option value="7">Channel 7</option>
+                        <option value="8">Channel 8</option>
+                    </select>
+                    <small class="form-text">Waveshare channel (1-8)</small>
+                </div>
+                <div class="form-group">
+                    <label>Parameter Name <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="param_name" placeholder="e.g., flow">
+                    <small class="form-text">Parameter to send to ODAMS</small>
+                </div>
+                <div class="form-group">
+                    <label>Unit <span class="required">*</span></label>
+                    <input type="text" class="form-control" name="unit" placeholder="e.g., m³/hr">
+                    <small class="form-text">Unit for this parameter</small>
+                </div>
+            </div>
+            <div class="info-box">
+                <small><strong>Note:</strong> Unit should match what's configured in analog server for this channel.</small>
+            </div>
+        </div>
+    `;
+
+    list.appendChild(card);
+}
+
 function removeSensor(btn) {
     const card = btn.closest('.sensor-config-card');
     if (card && confirm('Are you sure you want to remove this sensor?')) {
@@ -638,6 +757,8 @@ function saveSensors() {
             isValid = sensor.slave_id && sensor.register_type &&
                      sensor.register_address !== undefined && sensor.data_type &&
                      sensor.param_name && sensor.unit;
+        } else if (type === 'analog') {
+            isValid = sensor.server_url && sensor.channel_id && sensor.param_name && sensor.unit;
         }
 
         if (isValid) {

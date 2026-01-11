@@ -5,11 +5,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 A Flask-based sensor datalogger application that:
-- Fetches sensor data from HTML pages (via HTTP or local file://)
+
+- Fetches sensor data from multiple sources:
+  - **IQ Web Connect**: HTML pages (via HTTP or local file://)
+  - **Modbus TCP**: Direct TCP/IP connection to Modbus devices
+  - **Modbus RTU**: RS485 serial connection to Modbus devices
+  - **Analog (4-20mA)**: Waveshare analog acquisition module via REST API
 - Encrypts payloads using AES-256 and signs with RSA
 - Transmits to ODAMS/CPCB servers with retry logic
 - Runs 24/7 on Raspberry Pi with systemd integration
 - Provides a web admin interface for configuration and monitoring
+- Includes test server with actual payload validation
 
 ## Common Commands
 
@@ -33,9 +39,13 @@ python datalogger_app.py
 # Access web UI
 # http://localhost:9999 (credentials: admin/admin123)
 
-# Run test server for local testing
+# Run test server for local testing (with actual validations)
 python test_server.py
 # Configure endpoint in .env to: http://localhost:5000/v1.0/industry/data
+
+# Run analog acquisition server (separate device or localhost)
+python analogserver.py
+# Access web UI at http://localhost:8000
 ```
 
 ### Production (Raspberry Pi)
@@ -102,6 +112,175 @@ modules/
 ├── modbus_fetcher.py    # Modbus TCP sensor data fetching
 ├── modbus_rtu_fetcher.py # Modbus RTU (RS485) sensor data fetching
 └── constants.py         # Shared constants, logging setup
+
+analogserver.py          # Standalone analog acquisition server (Waveshare 4-20mA module)
+test_server.py           # ODAMS test server with actual payload validation
+```
+
+### Supported Sensor Types
+
+The datalogger supports four sensor types, all configurable via web UI:
+
+#### 1. IQ Web Connect (HTML Parsing)
+
+Fetches sensor data from HTML pages (HTTP or file://).
+
+**Configuration:**
+
+- `sensor_id`: Sensor ID from HTML (matches SID* tags)
+- `param_name`: CPCB parameter name
+- `unit`: Optional (fetched from HTML if not specified)
+
+**Data Source:** Configured via `DATAPAGE_URL` in .env
+
+**Implementation:** [modules/network.py](modules/network.py) - `fetch_sensor_data()`
+
+**HTML Structure Required:**
+
+```html
+<tr class="EvenRow">
+  <td id="SID1">S01</td>          <!-- sensor_id -->
+  <td id="MVAL1">12.5</td>        <!-- value -->
+  <td id="MUNIT1">mg/L</td>       <!-- unit -->
+</tr>
+```
+
+#### 2. Modbus TCP
+
+Direct TCP/IP connection to Modbus devices.
+
+**Configuration:**
+
+- `ip`: Device IP address (e.g., 192.168.1.100)
+- `port`: Modbus port (default: 502)
+- `slave_id`: Modbus slave ID (1-247)
+- `register_type`: holding, input, coil, discrete
+- `register_address`: Register address (0-65535)
+- `data_type`: uint16, int16, uint32, int32, float32, uint8_high/low, int8_high/low
+- `byte_order`: big, little (for multi-byte values)
+- `word_order`: big, little (for 32-bit values)
+- `param_name`: CPCB parameter name
+- `unit`: Unit for this parameter (required)
+
+**Implementation:** [modules/modbus_fetcher.py](modules/modbus_fetcher.py) - `fetch_modbus_tcp_sensors()`
+
+**Features:**
+
+- Support for all standard Modbus data types
+- Configurable byte/word ordering for compatibility
+- Efficient batching (one connection per device)
+
+#### 3. Modbus RTU (RS485)
+
+Serial/RS485 connection to Modbus RTU devices.
+
+**Device Configuration (shared across all RTU sensors):**
+
+- `port`: Serial port (COM7, /dev/ttyUSB0)
+- `baudrate`: 9600, 19200, 38400, 57600, 115200
+- `parity`: N (None), E (Even), O (Odd)
+- `bytesize`: 7 or 8
+- `stopbits`: 1 or 2
+- `timeout`: Communication timeout (seconds)
+
+**Per-Sensor Configuration:**
+
+- `slave_id`: Modbus slave ID (1-247)
+- `register_type`, `register_address`, `data_type`: Same as Modbus TCP
+- `byte_order`, `word_order`: Same as Modbus TCP
+- `param_name`: CPCB parameter name
+- `unit`: Unit for this parameter (required)
+
+**Implementation:** [modules/modbus_rtu_fetcher.py](modules/modbus_rtu_fetcher.py) - `fetch_modbus_rtu_sensors()`
+
+**Notes:**
+
+- Only one RTU device (serial port) supported
+- Multiple sensors can share the same bus with different slave IDs
+- Serial port configuration shared across all RTU sensors
+
+#### 4. Analog (4-20mA via Waveshare Module)
+
+Fetches data from Waveshare Modbus RTU Analog Input 8CH module via REST API.
+
+**Architecture:**
+
+- Analog server runs on separate device (or localhost for testing)
+- Reads 4-20mA signals from Waveshare module
+- Provides REST API for datalogger to fetch data
+- Web UI for scaling configuration (4-20mA to engineering units)
+
+**Configuration:**
+
+- `server_url`: URL of analog acquisition server (e.g., http://192.168.1.100:8000)
+- `channel_id`: Waveshare channel number (1-8)
+- `param_name`: CPCB parameter name
+- `unit`: Unit for this parameter (required, should match analog server)
+
+**Implementation:** [modules/network.py](modules/network.py) - `fetch_analog_sensors()`
+
+**Setup:**
+
+1. Run `analogserver.py` on device connected to Waveshare module
+2. Configure channels with scaling in analog server web UI (port 8000)
+3. Configure analog sensors in datalogger web UI with server URL
+
+**Documentation:**
+
+- [ANALOG_SERVER_GUIDE.md](ANALOG_SERVER_GUIDE.md) - Standalone analog server setup
+- [ANALOG_INTEGRATION_GUIDE.md](ANALOG_INTEGRATION_GUIDE.md) - Integration with datalogger
+
+**Features:**
+
+- Linear scaling from 4-20mA to engineering units
+- Web UI for easy configuration
+- Network-based architecture (flexible deployment)
+- Multiple dataloggers can read from one analog server
+- Efficient fetching (one API call per server for all channels)
+
+### Mixing Sensor Types
+
+All sensor types can be used simultaneously. The datalogger fetches data from all configured sensors, averages them, and sends to CPCB/ODAMS together.
+
+**Example Configuration:**
+
+```json
+{
+  "sensors": [
+    {
+      "type": "iq_web_connect",
+      "sensor_id": "S01",
+      "param_name": "ph",
+      "unit": "pH"
+    },
+    {
+      "type": "modbus_tcp",
+      "ip": "192.168.1.50",
+      "slave_id": 1,
+      "register_type": "holding",
+      "register_address": 100,
+      "data_type": "float32",
+      "param_name": "temperature",
+      "unit": "°C"
+    },
+    {
+      "type": "modbus_rtu",
+      "slave_id": 2,
+      "register_type": "input",
+      "register_address": 0,
+      "data_type": "uint16",
+      "param_name": "pressure",
+      "unit": "bar"
+    },
+    {
+      "type": "analog",
+      "server_url": "http://192.168.1.100:8000",
+      "channel_id": 1,
+      "param_name": "flow",
+      "unit": "m³/hr"
+    }
+  ]
+}
 ```
 
 ### Configuration Architecture
@@ -250,33 +429,64 @@ Failed transmissions are stored in [failed_queue.json](failed_queue.json):
 
 See [get_aligned_timestamp_ms()](modules/utils.py#L5) for alignment implementation.
 
-### HTML Parsing
+### Data Fetching Flow
 
-Data page must have this structure:
-```html
-<tr class="EvenRow"> or <tr class="OddRow">
-  <td id="SID1">S01</td>          <!-- sensor_id -->
-  <td id="MVAL1">12.5</td>        <!-- value -->
-  <td id="MUNIT1">mg/L</td>       <!-- unit -->
-</tr>
-```
+The datalogger uses [modules/network.py](modules/network.py) - `fetch_all_sensors()` to collect data from all configured sensor types:
 
-Parser extracts data by matching sensor_id from sensors.json to SID*, then reading corresponding MVAL* and MUNIT* values. See [fetch_sensor_data()](modules/network.py#L151).
+1. **Group sensors by type** (IQ Web Connect, Modbus TCP, Modbus RTU, Analog)
+2. **Fetch from each type in parallel** (when possible)
+3. **Return unified dictionary** mapping param_name to {value, unit}
+4. **Store in data collector** for averaging
+
+**Efficiency optimizations:**
+
+- IQ Web Connect: One HTML fetch for all sensors on same page
+- Modbus TCP: One connection per device IP
+- Modbus RTU: One serial connection for all sensors
+- Analog: One API call per server URL (fetches all channels)
 
 ## Testing
 
-Use [test_server.py](test_server.py) to verify encryption/decryption and error reporting locally:
+Use [test_server.py](test_server.py) to verify encryption/decryption and error reporting locally.
 
 ### Test Server Features
+
+The test server provides realistic testing with **actual payload validation** instead of just simulating errors.
+
+**Endpoints:**
 
 - **Web UI**: <http://localhost:5000> for configuration
 - **Data Endpoint**: <http://localhost:5000/v1.0/industry/data>
 - **Error Endpoint**: <http://localhost:5000/ocms/Cpcb/add_cpcberror>
-- Simulate HTTP errors (400, 401, 403, 404, 500, 502, 503)
-- Simulate ODAMS API errors (all 14 error codes: 10-121)
-- Validate credentials from .env
-- Decode signature headers
-- Console logging with payload decryption
+
+**Validation Types:**
+
+1. **Actual Validations** (always active, regardless of test mode):
+   - **Status 109**: Payload encryption - actually decrypts using TOKEN_ID
+   - **Status 111**: Timestamp alignment - validates 1-min (dev) or 15-min (prod) boundaries
+   - **Status 113**: Signature header presence check
+   - **Status 114**: X-Device-Id header presence check
+   - **Status 115**: Public key existence check
+   - **Status 117**: 7-day backdate limit validation
+   - **Status 118**: Future timestamp validation
+   - **Status 119**: Parameter structure validation (all required fields)
+   - **Status 120**: Multiple stations check (only one allowed)
+   - **Status 121**: Station/device mapping validation
+
+2. **Simulated Errors** (configured via web UI):
+   - Status 10, 102, 110, 112, 116
+   - Only returned if all actual validations pass
+
+**Features:**
+
+- Reads DEV_MODE from .env for correct timestamp alignment validation
+- Decrypts and displays payloads in console
+- Validates credentials from .env
+- Decodes signature headers
+- Detailed console logging with validation results
+- Color-coded error types in web UI (✓ Validation / ⚠ Simulation)
+
+**Documentation:** See [TEST_SERVER_VALIDATION.md](TEST_SERVER_VALIDATION.md) for complete guide.
 
 ### Testing Steps
 
@@ -291,9 +501,31 @@ Use [test_server.py](test_server.py) to verify encryption/decryption and error r
 3. Restart application
 4. Use "Test Fetch" and "Test Send" buttons in web UI
 5. Check test server console for:
-   - Decrypted payloads
+   - Decrypted payloads with full structure
+   - Actual validation results (encryption, timestamps, structure)
    - Error/heartbeat messages
-   - Validation results
+   - Pass/fail status for each validation
+
+### Testing Best Practices
+
+1. **Start with Success Mode**: Verify all validations pass before testing errors
+2. **Test Each Validation**: Intentionally break one validation at a time to verify detection
+3. **Test Simulated Errors**: After validations pass, test datalogger's error handling
+4. **Match DEV_MODE**: Ensure test server and datalogger have same DEV_MODE setting
+5. **Check Payload Structure**: Verify decrypted payload matches expected format
+
+### Analog Server Testing
+
+For analog sensor integration:
+
+1. Run `python analogserver.py` (starts on port 8000)
+2. Access web UI at <http://localhost:8000>
+3. Configure channels with scaling (4-20mA to engineering units)
+4. Monitor real-time readings in "Monitor" tab
+5. Test API endpoints: `curl http://localhost:8000/api/channels`
+6. Configure datalogger to fetch from `http://localhost:8000`
+
+**Documentation:** See [ANALOG_SERVER_GUIDE.md](ANALOG_SERVER_GUIDE.md) and [ANALOG_INTEGRATION_GUIDE.md](ANALOG_INTEGRATION_GUIDE.md).
 
 ## Key Implementation Details
 
@@ -330,9 +562,121 @@ python migrate_config.py
 
 ## Web UI
 
-The web interface ([modules/routes.py](modules/routes.py)) displays:
-- **Read-Only Section**: Environment variables from .env (disabled inputs)
-- **Editable Section**: Sensors and server_running toggle from sensors.json
-- **Status Display**: In-memory statistics (resets on restart)
+The web interface ([modules/routes.py](modules/routes.py)) provides:
 
-**Note**: To change .env values, edit the file manually and restart the application.
+### Pages
+
+1. **Dashboard** (`/`) - Real-time sensor monitoring
+   - Current sensor values with last update time
+   - System status (server running, last fetch/send times)
+   - Queue status
+   - Sensor type badges (IQ Web Connect, Modbus TCP, Modbus RTU, Analog)
+
+2. **Configuration** (`/config`) - Environment variables (read-only)
+   - Displays .env values (TOKEN_ID, DEVICE_ID, STATION_ID, etc.)
+   - Cannot be edited (must edit .env file and restart)
+
+3. **Sensors** (`/sensors`) - Sensor configuration
+   - **Four tabs**: IQ Web Connect, Modbus TCP, Modbus RTU (RS485), Analog
+   - Add/remove sensors of each type
+   - Configure sensor-specific parameters
+   - RTU device configuration (serial port settings)
+   - Save configuration to sensors.json
+
+4. **Queue** (`/queue`) - Failed transmissions queue
+   - View queued payloads
+   - Clear queue manually
+   - Queue statistics
+
+5. **Logs** (`/logs`) - Application logs viewer
+   - View recent log entries
+   - Filter by level
+   - Download logs
+
+### Features
+
+- **HTTP Basic Auth**: Username: admin, Password: admin123
+- **Test Buttons**: Test Fetch and Test Send for quick verification
+- **Real-time Updates**: Dashboard refreshes automatically
+- **Responsive Design**: Works on mobile and desktop
+
+**Note**: Changes to .env require application restart. Sensor configuration changes take effect on next logger cycle.
+
+## Recent Changes & Features
+
+### Analog Sensor Integration (Latest)
+
+Added support for 4-20mA analog sensors via Waveshare Modbus RTU Analog Input 8CH module:
+
+- **New Files**:
+  - `analogserver.py` - Standalone analog acquisition server with REST API
+  - `ANALOG_SERVER_GUIDE.md` - Server setup and configuration guide
+  - `ANALOG_INTEGRATION_GUIDE.md` - Integration with datalogger guide
+
+- **Modified Files**:
+  - `modules/network.py` - Added `fetch_analog_sensors()` function
+  - `modules/config.py` - Added validation for analog sensor type
+  - `templates/sensors.html` - Added Analog tab with UI for configuration
+  - `templates/dashboard.html` - Added analog sensor display
+
+- **Features**:
+  - Network-based architecture (analog server can run on separate device)
+  - Web UI for scaling configuration (4-20mA to engineering units)
+  - REST API for fetching channel data
+  - Efficient fetching (one API call per server for all 8 channels)
+  - Configurable units in datalogger (consistent with other sensor types)
+
+### Test Server Validation Improvements
+
+Enhanced test server with actual payload validation:
+
+- **Actual Validations** (Status 109, 111, 113-121):
+  - Actually decrypts payloads using TOKEN_ID
+  - Validates timestamp alignment based on DEV_MODE
+  - Checks payload structure (stationId, deviceId, parameters)
+  - Validates backdate/future timestamp limits
+  - These run automatically, not just simulated
+
+- **Documentation**:
+  - `TEST_SERVER_VALIDATION.md` - Complete testing guide with validation details
+
+- **Console Output**: Detailed logging showing:
+  - Decrypted payload structure
+  - Validation pass/fail for each check
+  - Expected vs actual values for failed validations
+
+### Modbus RTU Support
+
+Added serial/RS485 Modbus support:
+
+- **New File**: `modules/modbus_rtu_fetcher.py`
+- Shared serial port configuration across all RTU sensors
+- Multiple slaves supported on same RS485 bus
+- All Modbus data types supported (same as Modbus TCP)
+
+### Data Averaging Implementation
+
+Continuous sampling with averaging:
+
+- **New File**: `modules/data_collector.py`
+- Separate threads for data collection vs transmission
+- Production: 30-second sampling, 15-minute averaging
+- Development: 10-second sampling, 1-minute averaging
+- Reduces noise and provides more representative readings
+
+## Project History
+
+- **Initial Release**: IQ Web Connect HTML parsing, basic encryption
+- **Modbus TCP**: Added direct Modbus TCP/IP support
+- **Modbus RTU**: Added RS485/serial Modbus support
+- **Data Averaging**: Continuous sampling with averaging system
+- **Test Server Validation**: Enhanced test server with actual validations
+- **Analog Integration**: Added 4-20mA analog sensor support via Waveshare module
+
+## Related Documentation
+
+- [README.md](README.md) - Project overview and setup
+- [CLAUDE.md](CLAUDE.md) - This file (development guide)
+- [ANALOG_SERVER_GUIDE.md](ANALOG_SERVER_GUIDE.md) - Analog server setup
+- [ANALOG_INTEGRATION_GUIDE.md](ANALOG_INTEGRATION_GUIDE.md) - Analog integration guide
+- [TEST_SERVER_VALIDATION.md](TEST_SERVER_VALIDATION.md) - Test server validation guide
