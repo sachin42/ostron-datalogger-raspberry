@@ -65,7 +65,7 @@ def main():
         response = send_at_command(port, 'AT')
         
         if response and 'OK' in response:
-            print("✓ Modem found!")
+            print("Modem found!")
             print(f"  Configuring network on {port}...")
             
             # Send configuration command
@@ -74,12 +74,12 @@ def main():
             if config_response:
                 print(f"  Response: {config_response.strip()}")
                 if 'OK' in config_response:
-                    print(f"  ✓ Configuration successful on {port}")
+                    print(f"Configuration successful on {port}")
                     return  # Exit after configuring first modem port
             else:
-                print(f"  ✗ No response to configuration command")
+                print(f"No response to configuration command")
         else:
-            print("✗ No response or not a modem")
+            print("No response or not a modem")
     
     print("\nNo modem port found!")
 
