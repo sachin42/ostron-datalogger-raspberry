@@ -119,6 +119,12 @@ def validate_sensors_config(sensors_data: dict) -> Tuple[bool, str]:
             if missing:
                 return False, f"Modbus RTU sensor {idx+1}: missing {', '.join(missing)}"
 
+        elif sensor_type == 'analog':
+            required_fields = ['server_url', 'channel_id', 'param_name', 'unit']
+            missing = [f for f in required_fields if f not in sensor or sensor[f] == '']
+            if missing:
+                return False, f"Analog sensor {idx+1}: missing {', '.join(missing)}"
+
         else:
             return False, f"Sensor {idx+1}: unknown type '{sensor_type}'"
 

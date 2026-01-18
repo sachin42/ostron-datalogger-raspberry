@@ -1,77 +1,87 @@
 #!/usr/bin/env python3
-"""
-Minimal Quectel Modem AT Commands
-Uses dmesg grep to find correct ttyUSB port
-"""
 
-import subprocess
 import serial
 import time
-import sys
+import os
+import glob
 
-
-def find_modem_port():
-    """Find first GSM modem (option converter) port from dmesg"""
+def get_rs485_port():
+    """Get the actual ttyUSB device that rs485 symlink points to"""
     try:
-        result = subprocess.run(
-            "dmesg | grep 'GSM modem'",
-            shell=True,
-            capture_output=True,
-            text=True
-        )
-        # print(result)
-        
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if 'ttyUSB' in line:
-                print(line)
-                # Extract ttyUSB number: "...attached to ttyUSB1"
-                port_num = line.split('ttyUSB')[-1].strip()
-                port = f'/dev/ttyUSB{port_num}'
-                return port
+        if os.path.exists('/dev/rs485'):
+            return os.path.basename(os.path.realpath('/dev/rs485'))
     except:
         pass
-    
-    return '/dev/ttyUSB0'  # fallback
+    return None
 
-
-def send_at(port, command, wait=1):
-    """Send AT command"""
+def send_at_command(port, command, timeout=2):
+    """Send AT command and return response"""
     try:
-        ser = serial.Serial(port, 115200, timeout=2)
+        ser = serial.Serial(port, 115200, timeout=timeout)
+        time.sleep(0.1)
+        
+        # Clear any existing data
         ser.reset_input_buffer()
+        ser.reset_output_buffer()
         
-        print(f"? {command}")
-        ser.write(f"{command}\r\n".encode())
+        # Send command
+        ser.write((command + '\r\n').encode())
+        time.sleep(0.5)
         
-        time.sleep(wait)
-        response = ""
-        while ser.in_waiting > 0:
-            response += ser.read(ser.in_waiting).decode(errors='replace')
-            time.sleep(0.05)
-        
-        print(response) if response else print("(no response)")
+        # Read response
+        response = ser.read(ser.in_waiting).decode('utf-8', errors='ignore')
         ser.close()
+        
         return response
-    
     except Exception as e:
-        print(f"Error: {e}")
         return None
 
-
-def setup(apn="airtelgprs.com"):
-    """Quick setup sequence"""
-    port = find_modem_port()
-    print(f"Using port: {port}\n")
+def main():
+    # Get RS485 port to exclude
+    rs485_port = get_rs485_port()
+    print(f"RS485 port: {rs485_port if rs485_port else 'Not found'}")
     
-    send_at(port, "AT", 0.5)
-    send_at(port,f'AT+QCFG="usbnet",1', 1)
-    send_at(port, f'at+qicsgp=1,1,"{apn}"', 1)
-    send_at(port, "AT+QIACT?", 1)
-    send_at(port, "at+qnetdevctl=1,1,1", 3)
-
-
+    # Get all ttyUSB ports
+    usb_ports = sorted(glob.glob('/dev/ttyUSB*'))
+    
+    if not usb_ports:
+        print("No ttyUSB ports found!")
+        return
+    
+    print(f"Found {len(usb_ports)} USB serial ports")
+    
+    # Try each port
+    for port in usb_ports:
+        port_name = os.path.basename(port)
+        
+        # Skip RS485 port
+        if rs485_port and port_name == rs485_port:
+            print(f"Skipping {port} (RS485)")
+            continue
+        
+        print(f"Testing {port}...", end=' ')
+        
+        # Send AT command
+        response = send_at_command(port, 'AT')
+        
+        if response and 'OK' in response:
+            print("Modem found!")
+            print(f"  Configuring network on {port}...")
+            
+            # Send configuration command
+            config_response = send_at_command(port, 'AT+QNETDEVCTL=1,1,1', timeout=5)
+            
+            if config_response:
+                print(f"  Response: {config_response.strip()}")
+                if 'OK' in config_response:
+                    print(f"Configuration successful on {port}")
+                    return  # Exit after configuring first modem port
+            else:
+                print(f"No response to configuration command")
+        else:
+            print("No response or not a modem")
+    
+    print("\nNo modem port found!")
 
 if __name__ == "__main__":
-    apn = sys.argv[1] if len(sys.argv) > 1 else "airtelgprs.com"
-    setup(apn)
+    main()

@@ -75,6 +75,8 @@
                             Modbus TCP
                         {% elif sensor.get('type') == 'modbus_rtu' %}
                             Modbus RTU
+                        {% elif sensor.get('type') == 'analog' %}
+                            Analog (4-20mA)
                         {% else %}
                             IQ Web Connect
                         {% endif %}
@@ -84,6 +86,8 @@
                             {{ sensor.ip }}:{{ sensor.get('slave_id') }}
                         {% elif sensor.get('type') == 'modbus_rtu' %}
                             Slave {{ sensor.get('slave_id') }}
+                        {% elif sensor.get('type') == 'analog' %}
+                            Channel {{ sensor.get('channel_id') }}
                         {% else %}
                             {{ sensor.sensor_id }}
                         {% endif %}
