@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Diagnostics{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Diagnostic Monitoring</h2>
+    <div class="header-actions">
+        <button onclick="location.reload()" class="btn btn-primary">🔄 Refresh</button>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">🔍</div>
+        <div class="stat-content">
+            <div class="stat-label">Monitor Status</div>
+            <div class="stat-value">
+                {% if status.running %}
+                    <span class="badge badge-success">Running</span>
+                {% else %}
+                    <span class="badge badge-danger">Stopped</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">🌐</div>
+        <div class="stat-content">
+            <div class="stat-label">Internet Status</div>
+            <div class="stat-value">
+                {% if status.last_internet_success %}
+                    {% if status.minutes_without_internet and status.minutes_without_internet > 5 %}
+                        <span class="badge badge-warning">Unstable</span>
+                    {% else %}
+                        <span class="badge badge-success">Connected</span>
+                    {% endif %}
+                {% else %}
+                    <span class="badge badge-danger">Unknown</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-content">
+            <div class="stat-label">Consecutive Failures</div>
+            <div class="stat-value">
+                {% if status.consecutive_failures > 0 %}
+                    <span style="color: #e74c3c;">{{ status.consecutive_failures }}</span>
+                {% else %}
+                    <span style="color: #27ae60;">0</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">🔄</div>
+        <div class="stat-content">
+            <div class="stat-label">Restart Count</div>
+            <div class="stat-value">{{ status.restart_count }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>Monitoring Status</h3>
+    <div class="info-grid">
+        <div class="info-card">
+            <div class="info-label">Last Check Time</div>
+            <div class="info-value">
+                {% if status.last_check_time %}
+                    {{ status.last_check_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                    Never
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-label">Last Internet Success</div>
+            <div class="info-value">
+                {% if status.last_internet_success %}
+                    {{ status.last_internet_success.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                    Never
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-label">Time Without Internet</div>
+            <div class="info-value">
+                {% if status.minutes_without_internet is not none %}
+                    {% if status.minutes_without_internet > 60 %}
+                        <span style="color: #e74c3c;">{{ "%.1f"|format(status.minutes_without_internet / 60) }} hours</span>
+                    {% elif status.minutes_without_internet > 5 %}
+                        <span style="color: #f39c12;">{{ "%.1f"|format(status.minutes_without_internet) }} minutes</span>
+                    {% else %}
+                        <span style="color: #27ae60;">{{ "%.1f"|format(status.minutes_without_internet) }} minutes</span>
+                    {% endif %}
+                {% else %}
+                    <span style="color: #95a5a6;">N/A</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-label">Last Restart Time</div>
+            <div class="info-value">
+                {% if status.last_restart_time %}
+                    {{ status.last_restart_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                    Never
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>Configuration</h3>
+    <div class="info-grid">
+        <div class="info-card">
+            <div class="info-label">Check Interval</div>
+            <div class="info-value">{{ status.config.check_interval_minutes }} minutes</div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-label">Internet Timeout</div>
+            <div class="info-value">{{ status.config.internet_timeout_minutes }} minutes</div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-label">Auto-Restart Enabled</div>
+            <div class="info-value">
+                {% if status.config.auto_restart_enabled %}
+                    <span class="badge badge-success">Yes</span>
+                {% else %}
+                    <span class="badge badge-danger">No</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-label">Restart Cooldown</div>
+            <div class="info-value">{{ status.config.restart_cooldown_minutes }} minutes</div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>About Diagnostic Monitoring</h3>
+    <div class="alert alert-info">
+        <p><strong>What it does:</strong></p>
+        <ul style="margin: 0.5em 0 0 1.5em; padding: 0;">
+            <li>Checks internet connectivity every {{ status.config.check_interval_minutes }} minutes</li>
+            <li>Tracks time since last successful internet connection</li>
+            {% if status.config.auto_restart_enabled %}
+            <li>Automatically restarts the system if internet is unavailable for {{ status.config.internet_timeout_minutes }}+ minutes</li>
+            <li>Prevents boot loops with a {{ status.config.restart_cooldown_minutes }}-minute cooldown between restarts</li>
+            {% else %}
+            <li>Auto-restart is currently <strong>disabled</strong> - only warnings will be logged</li>
+            {% endif %}
+            <li>Sends error notification before restarting</li>
+        </ul>
+        <p style="margin-top: 1em;"><strong>Configuration:</strong> Settings can be changed in the <code>.env</code> file (requires application restart).</p>
+    </div>
+</div>
+
+<style>
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1em;
+    margin-top: 1em;
+}
+
+.info-card {
+    background: white;
+    padding: 1em;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.info-label {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 0.5em;
+}
+
+.info-value {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #333;
+}
+
+.alert-info {
+    background: #e3f2fd;
+    border-left: 4px solid #2196f3;
+}
+</style>
+{% endblock %}

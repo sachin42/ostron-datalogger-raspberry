@@ -50,6 +50,11 @@ python analogserver.py
 
 ### Production (Raspberry Pi)
 ```bash
+# Install sudoers configuration (for auto-restart on internet timeout)
+sudo cp sudoers-datalogger /etc/sudoers.d/datalogger
+sudo chmod 440 /etc/sudoers.d/datalogger
+sudo visudo -c -f /etc/sudoers.d/datalogger  # Verify syntax
+
 # Install as systemd service
 sudo cp datalogger.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -87,7 +92,13 @@ The application uses a multi-threaded architecture with data averaging:
    - Development: ~6 samples per send (10s × 6 = 1 minute)
    - Clears collected data after sending
 4. **Heartbeat Thread** ([modules/threads.py:66](modules/threads.py#L66)): IP reporting every 30 minutes
-5. **Retry Queue Thread** ([modules/queue.py:40](modules/queue.py#L40)): Dynamic background worker (spawned as needed)
+5. **Diagnostic Monitor Thread** ([modules/diagnostics.py](modules/diagnostics.py)): Continuous internet connectivity monitoring
+   - Checks internet every 5 minutes (configurable)
+   - Tracks time since last successful connection
+   - Auto-restarts system after 30+ minutes without internet (configurable)
+   - Restart cooldown prevents boot loops
+   - Sends error notification before restart
+6. **Retry Queue Thread** ([modules/queue.py:40](modules/queue.py#L40)): Dynamic background worker (spawned as needed)
    - Triggered automatically after successful send
    - Processes failed queue in FIFO order
    - Stops on first error (4xx/5xx or network failure)
@@ -103,18 +114,21 @@ modules/
 ├── status.py            # In-memory status tracking (no file persistence)
 ├── data_collector.py    # Data averaging - collects samples in memory for averaging
 ├── threads.py           # Background threads (data_collection, logger, heartbeat)
+├── diagnostics.py       # Pre-startup diagnostics and continuous internet monitoring
 ├── network.py           # Data fetching, server transmission, error reporting
 ├── crypto.py            # AES encryption + RSA signature generation
 ├── payload.py           # JSON payload construction
 ├── queue.py             # Failed transmission queue with retry logic
 ├── utils.py             # Timestamp alignment utilities
-├── routes.py            # Flask web routes (/health, /test_fetch, /test_send)
+├── routes.py            # Flask web routes (/health, /test_fetch, /test_send, /diagnostics)
 ├── modbus_fetcher.py    # Modbus TCP sensor data fetching
 ├── modbus_rtu_fetcher.py # Modbus RTU (RS485) sensor data fetching
 └── constants.py         # Shared constants, logging setup
 
 analogserver.py          # Standalone analog acquisition server (Waveshare 4-20mA module)
 test_server.py           # ODAMS test server with actual payload validation
+datalogger-wrapper.sh    # Simplified systemd wrapper (activates venv, starts app)
+sudoers-datalogger       # Sudoers config template for passwordless reboot
 ```
 
 ### Supported Sensor Types
@@ -282,6 +296,178 @@ All sensor types can be used simultaneously. The datalogger fetches data from al
   ]
 }
 ```
+
+### Diagnostic System
+
+The datalogger includes a comprehensive diagnostic system that handles pre-startup checks and continuous monitoring to ensure reliable 24/7 operation on Raspberry Pi.
+
+#### Pre-Startup Diagnostics (Blocking Phase)
+
+Runs once at application startup before any other components initialize:
+
+1. **Modem Detection & Configuration** ([modules/diagnostics.py](modules/diagnostics.py) - `find_quectel_modem()`, `configure_quectel_modem()`)
+   - Scans USB serial ports for Quectel EC200U/G modem
+   - Excludes RS485 converters (CH340, FT232, CP210)
+   - Sends AT commands to enable network mode
+   - Retries up to 3 times with 2-second delays
+   - Continues startup even if modem not found (ethernet may work)
+
+2. **Network Interface Check** ([modules/diagnostics.py](modules/diagnostics.py) - `check_network_interface()`)
+   - Waits for eth0 to get IP address (max 120 seconds)
+   - Uses `ip addr show` command to check interface
+   - Logs IP address when assigned
+   - Continues startup even if timeout (application has retry logic)
+
+3. **Internet Connectivity Check** ([modules/diagnostics.py](modules/diagnostics.py) - `check_internet_connectivity()`)
+   - Tests connectivity via HTTP requests to multiple endpoints:
+     - Google (https://www.google.com)
+     - Cloudflare DNS (https://1.1.1.1)
+     - CPCB Portal (http://portal.cpcbocems.com)
+   - Accepts various HTTP success codes (200, 301, 302, 303, 307, 308)
+   - Continues startup even if fails (monitoring will track)
+
+4. **Network Stability Wait**
+   - Waits 30 seconds for network to stabilize after IP assignment
+   - Ensures modem/network is fully ready before starting data operations
+
+**Total Startup Time:** 40-160 seconds depending on network availability
+
+**Implementation:** All pre-startup diagnostics run in `run_pre_startup_diagnostics()` called from [datalogger_app.py](datalogger_app.py) before initializing other threads.
+
+#### Continuous Monitoring (Non-Blocking Phase)
+
+Background thread that monitors system health and triggers recovery actions:
+
+**Internet Connectivity Monitoring** ([modules/diagnostics.py](modules/diagnostics.py) - `DiagnosticMonitor` class)
+
+- Checks internet connectivity at regular intervals (default: 5 minutes)
+- Tracks time since last successful connection
+- Auto-restarts system if internet unavailable for extended period (default: 30 minutes)
+- Prevents boot loops with restart cooldown (default: 30 minutes)
+- Sends error notification before restarting
+
+**Safety Features:**
+- Enable/disable flag to prevent unwanted restarts during testing
+- Restart cooldown prevents rapid restart loops
+- Graceful shutdown with error notification
+- Thread-safe status tracking
+
+**Web Interface:** Status visible at `/diagnostics` page showing:
+- Last check time
+- Last successful internet connection
+- Time without internet
+- Consecutive failures count
+- Restart count and last restart time
+- Current configuration
+
+#### Configuration (via .env)
+
+```bash
+# How often to check internet connectivity (in minutes)
+DIAGNOSTIC_CHECK_INTERVAL_MINUTES=5
+
+# Auto-restart system after this many minutes without internet
+DIAGNOSTIC_INTERNET_TIMEOUT_MINUTES=30
+
+# Enable/disable automatic system restart on internet timeout
+DIAGNOSTIC_AUTO_RESTART_ENABLED=true
+
+# Minimum time between system restarts (prevents boot loops)
+DIAGNOSTIC_RESTART_COOLDOWN_MINUTES=30
+```
+
+**Default values:** If not specified, defaults are: 5min check interval, 30min timeout, auto-restart enabled, 30min cooldown.
+
+#### Passwordless Reboot Setup
+
+For auto-restart to work, the application user needs sudo permission for reboot command:
+
+```bash
+# Install sudoers configuration
+sudo cp sudoers-datalogger /etc/sudoers.d/datalogger
+sudo chmod 440 /etc/sudoers.d/datalogger
+sudo visudo -c -f /etc/sudoers.d/datalogger  # Verify syntax
+```
+
+The sudoers file grants ONLY reboot permission (no shell access):
+```
+logger ALL=(ALL) NOPASSWD: /sbin/reboot
+```
+
+#### Adding Custom Diagnostics
+
+The diagnostic module is designed for easy extension. To add custom checks:
+
+**Example: Disk Space Monitoring**
+
+```python
+# In modules/diagnostics.py
+
+def check_disk_space() -> DiagnosticResult:
+    """Check available disk space."""
+    import shutil
+    stat = shutil.disk_usage('/')
+    percent_free = (stat.free / stat.total) * 100
+
+    if percent_free > 10:
+        return DiagnosticResult("Disk Space", True, f"{percent_free:.1f}% free")
+    else:
+        return DiagnosticResult("Disk Space", False, f"Only {percent_free:.1f}% free")
+
+# Add to pre-startup diagnostics
+def run_pre_startup_diagnostics():
+    # ... existing checks ...
+    results.append(check_disk_space())
+    # ...
+```
+
+**Example: CPU Temperature Monitoring**
+
+```python
+# Add to DiagnosticMonitor._perform_check() for continuous monitoring
+
+def _perform_check(self):
+    # ... existing internet check ...
+
+    # Check CPU temperature
+    with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+        temp = int(f.read().strip()) / 1000
+
+    if temp > 80:
+        logger.warning(f"High CPU temperature: {temp}°C")
+        from modules.network import send_error_to_endpoint
+        send_error_to_endpoint("HIGH_TEMPERATURE", f"CPU: {temp}°C")
+```
+
+#### Troubleshooting
+
+**Modem not detected:**
+- Check USB connection
+- Verify modem is Quectel EC200U/G
+- Check if being detected as RS485 converter (exclude list)
+- Application continues without modem (ethernet may work)
+
+**Network interface timeout:**
+- Check ethernet cable connection
+- Verify network switch/router is working
+- Check if DHCP server is available
+- Application continues (retry logic handles network issues)
+
+**Auto-restart not working:**
+- Verify sudoers file is installed correctly
+- Check user has permission: `sudo -l` should show `/sbin/reboot`
+- Check if `DIAGNOSTIC_AUTO_RESTART_ENABLED=true` in .env
+- Check logs for error messages
+
+**Restart loop:**
+- Restart cooldown should prevent this (default 30 minutes)
+- If loop occurs, increase `DIAGNOSTIC_RESTART_COOLDOWN_MINUTES`
+- Disable auto-restart: `DIAGNOSTIC_AUTO_RESTART_ENABLED=false`
+- Fix underlying network issue
+
+**View diagnostic status:**
+- Web UI: http://localhost:9999/diagnostics
+- Logs: `tail -f datalogger.log | grep -i diagnostic`
 
 ### Configuration Architecture
 
@@ -588,7 +774,16 @@ The web interface ([modules/routes.py](modules/routes.py)) provides:
    - Clear queue manually
    - Queue statistics
 
-5. **Logs** (`/logs`) - Application logs viewer
+5. **Diagnostics** (`/diagnostics`) - System diagnostic monitoring
+   - Monitor status (running/stopped)
+   - Internet connectivity status
+   - Time without internet
+   - Consecutive failures count
+   - Restart count and last restart time
+   - Configuration settings (check interval, timeout, auto-restart)
+   - Real-time diagnostic status updates
+
+6. **Logs** (`/logs`) - Application logs viewer
    - View recent log entries
    - Filter by level
    - Download logs
@@ -604,7 +799,35 @@ The web interface ([modules/routes.py](modules/routes.py)) provides:
 
 ## Recent Changes & Features
 
-### Analog Sensor Integration (Latest)
+### Diagnostic System Implementation (Latest)
+
+Comprehensive diagnostic module for reliable 24/7 operation:
+
+- **New Files**:
+  - `modules/diagnostics.py` - Pre-startup diagnostics and continuous monitoring
+  - `templates/diagnostics.html` - Web UI for diagnostic status
+  - `sudoers-datalogger` - Sudoers config template for passwordless reboot
+
+- **Modified Files**:
+  - `datalogger_app.py` - Added pre-startup diagnostics and monitoring thread
+  - `datalogger-wrapper.sh` - Simplified (removed shell-based checks, moved to Python)
+  - `modules/routes.py` - Added `/diagnostics` endpoint
+  - `.env` - Added diagnostic configuration variables
+
+- **Features**:
+  - **Pre-Startup Diagnostics**: Modem detection/configuration, network interface check, internet connectivity check
+  - **Continuous Monitoring**: Internet connectivity checks every 5 minutes
+  - **Auto-Recovery**: System restart after 30+ minutes without internet
+  - **Safety Features**: Restart cooldown, enable/disable flag, error notifications
+  - **Web Interface**: Real-time diagnostic status at `/diagnostics` page
+  - **Extensible**: Easy to add custom diagnostic checks
+  - **All-Python**: Better error handling, logging integration, no shell scripts
+
+- **Replaced**:
+  - `findcdcport.py` - Functionality integrated into diagnostics module
+  - Shell-based network checks in wrapper script - Now handled in Python
+
+### Analog Sensor Integration
 
 Added support for 4-20mA analog sensors via Waveshare Modbus RTU Analog Input 8CH module:
 
@@ -672,6 +895,7 @@ Continuous sampling with averaging:
 - **Data Averaging**: Continuous sampling with averaging system
 - **Test Server Validation**: Enhanced test server with actual validations
 - **Analog Integration**: Added 4-20mA analog sensor support via Waveshare module
+- **Diagnostic System**: Pre-startup diagnostics and continuous internet monitoring with auto-recovery
 
 ## Related Documentation
 

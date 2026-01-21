@@ -7,6 +7,7 @@ from modules.constants import logger
 from modules.config import load_env_config
 from modules.threads import data_collection_thread, logger_thread, heartbeat_thread
 from modules.routes import register_routes
+from modules.diagnostics import run_pre_startup_diagnostics, diagnostic_monitor
 
 app = Flask(__name__)
 auth = HTTPBasicAuth()
@@ -29,6 +30,10 @@ register_routes(app, auth)
 
 
 if __name__ == '__main__':
+    # Run pre-startup diagnostics BEFORE anything else
+    logger.info("Running pre-startup diagnostics...")
+    diagnostic_results = run_pre_startup_diagnostics()
+
     # Load environment configuration at startup
     logger.info("Loading environment configuration from .env")
     env_config = load_env_config()
@@ -44,6 +49,9 @@ if __name__ == '__main__':
     # Start heartbeat thread
     heartbeat_thread_obj = threading.Thread(target=heartbeat_thread, daemon=True)
     heartbeat_thread_obj.start()
+
+    # Start diagnostic monitoring thread
+    diagnostic_monitor.start()
 
     logger.info("Datalogger application started")
 

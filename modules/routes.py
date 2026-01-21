@@ -57,6 +57,16 @@ def register_routes(app, auth):
         return render_template('settings.html',
                              env_config=env_config)
 
+    @app.route('/diagnostics')
+    @auth.login_required
+    def diagnostics_page():
+        """Diagnostics monitoring page"""
+        from .diagnostics import diagnostic_monitor
+        diagnostic_status = diagnostic_monitor.get_status()
+
+        return render_template('diagnostics.html',
+                             status=diagnostic_status)
+
     # ========== API Endpoints ==========
 
     @app.route('/health')
