@@ -31,9 +31,16 @@ def register_routes(app, auth):
         sensors_config = load_sensors_config()
         status_dict = status.to_dict()
 
+        # Exclude disabled ADS1115 channels from dashboard
+        all_sensors = sensors_config.get('sensors', [])
+        visible_sensors = [
+            s for s in all_sensors
+            if not (s.get('type') == 'ads1115' and not s.get('enabled', False))
+        ]
+
         return render_template('dashboard.html',
                              config=sensors_config,
-                             sensors=sensors_config.get('sensors', []),
+                             sensors=visible_sensors,
                              status=status_dict)
 
     @app.route('/sensors')

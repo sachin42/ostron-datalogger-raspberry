@@ -77,6 +77,8 @@
                             Modbus RTU
                         {% elif sensor.get('type') == 'analog' %}
                             Analog (4-20mA)
+                        {% elif sensor.get('type') == 'ads1115' %}
+                            ADS1115 Analog
                         {% else %}
                             IQ Web Connect
                         {% endif %}
@@ -88,6 +90,8 @@
                             Slave {{ sensor.get('slave_id') }}
                         {% elif sensor.get('type') == 'analog' %}
                             Channel {{ sensor.get('channel_id') }}
+                        {% elif sensor.get('type') == 'ads1115' %}
+                            A{{ sensor.get('channel') }}
                         {% else %}
                             {{ sensor.sensor_id }}
                         {% endif %}
