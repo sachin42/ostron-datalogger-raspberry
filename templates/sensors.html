@@ -15,7 +15,8 @@
         <button class="tab-btn active" data-tab="iq-web">IQ Web Connect</button>
         <button class="tab-btn" data-tab="modbus">Modbus TCP</button>
         <button class="tab-btn" data-tab="rs485">Modbus RTU (RS485)</button>
-        <button class="tab-btn" data-tab="analog">Analog</button>
+        <button class="tab-btn" data-tab="analog">Analog (Server)</button>
+        <button class="tab-btn" data-tab="ads1115">ADS1115 (I2C ADC)</button>
     </div>
 
     <!-- IQ Web Connect Tab -->
@@ -331,6 +332,91 @@
         </div>
     </div>
 
+    <!-- ADS1115 I2C ADC Tab -->
+    <div class="tab-content" id="tab-ads1115">
+        <div class="card">
+            <h3>ADS1115 ADC Sensors (Direct I2C)</h3>
+            <p class="text-muted">4-20mA input via 150Ω shunt → 0.6V–3.0V. Fixed: I2C 0x48, Gain ±4.096V</p>
+
+            <div class="info-box">
+                <strong>Wiring (per channel):</strong>
+                <ul>
+                    <li>Connect 150Ω resistor between AINx and GND on the ADS1115</li>
+                    <li>Loop+ of sensor → AINx &nbsp;|&nbsp; Loop- of sensor → GND (through 150Ω)</li>
+                    <li>4mA → 0.60V &nbsp;|&nbsp; 20mA → 3.00V</li>
+                </ul>
+                <small>Install library: <code>pip install adafruit-circuitpython-ads1x15</code></small>
+            </div>
+
+            {% for ch in ads1115_channels %}
+            {% set ch_id = ch.channel %}
+            <div class="sensor-config-card ads1115-card" data-type="ads1115">
+                <div class="sensor-config-header" style="display:flex; align-items:center; gap:12px;">
+                    <label style="margin:0; font-size:1rem; font-weight:600; cursor:pointer;">
+                        <input type="checkbox" name="enabled" class="ads1115-enable-cb"
+                               onchange="toggleADS1115Channel(this)"
+                               {% if ch.get('enabled', False) %}checked{% endif %}>
+                        &nbsp;Channel A{{ ch_id }}
+                    </label>
+                    <span class="text-muted" style="font-size:0.85rem;">(AIN{{ ch_id }})</span>
+                </div>
+
+                <input type="hidden" name="channel" value="{{ ch_id }}">
+
+                <div class="sensor-config-body ads1115-fields" {% if not ch.get('enabled', False) %}style="display:none"{% endif %}>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Parameter Name <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="param_name"
+                                   value="{{ ch.get('param_name', '') }}" placeholder="e.g., flow">
+                            <small class="form-text">CPCB parameter name</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Unit <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="unit"
+                                   value="{{ ch.get('unit', '') }}" placeholder="e.g., m³/hr">
+                        </div>
+                        <div class="form-group">
+                            <label>Scale Method</label>
+                            <select class="form-control" name="scale_method"
+                                    onchange="toggleADS1115ScaleFields(this)">
+                                <option value="range"  {% if ch.get('scale_method', 'range') == 'range'  %}selected{% endif %}>Range (4mA→min, 20mA→max)</option>
+                                <option value="factor" {% if ch.get('scale_method') == 'factor' %}selected{% endif %}>Factor (mA × factor)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Range fields -->
+                    <div class="form-row ads1115-range-fields" {% if ch.get('scale_method') == 'factor' %}style="display:none"{% endif %}>
+                        <div class="form-group">
+                            <label>Min Value <span class="required">*</span></label>
+                            <input type="number" step="any" class="form-control" name="min_value"
+                                   value="{{ ch.get('min_value', 0.0) }}" placeholder="0.0">
+                            <small class="form-text">Engineering value at 4mA</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Value <span class="required">*</span></label>
+                            <input type="number" step="any" class="form-control" name="max_value"
+                                   value="{{ ch.get('max_value', 100.0) }}" placeholder="100.0">
+                            <small class="form-text">Engineering value at 20mA</small>
+                        </div>
+                    </div>
+
+                    <!-- Factor fields -->
+                    <div class="form-row ads1115-factor-fields" {% if ch.get('scale_method', 'range') != 'factor' %}style="display:none"{% endif %}>
+                        <div class="form-group">
+                            <label>Factor <span class="required">*</span></label>
+                            <input type="number" step="any" class="form-control" name="factor"
+                                   value="{{ ch.get('factor', 1.0) }}" placeholder="1.0">
+                            <small class="form-text">value = current_mA × factor</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Analog Tab -->
     <div class="tab-content" id="tab-analog">
         <div class="card">
@@ -437,6 +523,7 @@ function addSensor() {
     } else if (activeTab === 'analog') {
         addAnalogSensor();
     }
+    // ADS1115 channels are fixed (always 4 shown); no add action needed
 }
 
 function addIQWebSensor() {
@@ -660,6 +747,18 @@ function addRTUSensor() {
     list.appendChild(card);
 }
 
+function toggleADS1115Channel(cb) {
+    const card = cb.closest('.sensor-config-card');
+    const fields = card.querySelector('.ads1115-fields');
+    fields.style.display = cb.checked ? '' : 'none';
+}
+
+function toggleADS1115ScaleFields(sel) {
+    const card = sel.closest('.sensor-config-card');
+    card.querySelector('.ads1115-range-fields').style.display  = sel.value === 'range'  ? '' : 'none';
+    card.querySelector('.ads1115-factor-fields').style.display = sel.value === 'factor' ? '' : 'none';
+}
+
 function addAnalogSensor() {
     const list = document.getElementById('analog-sensors-list');
     const index = list.querySelectorAll('.sensor-config-card').length;
@@ -729,6 +828,28 @@ function saveSensors() {
         const type = card.dataset.type;
         const sensor = { type: type };
 
+        // ADS1115 cards have fixed channels — collect all 4 and include enabled state
+        if (type === 'ads1115') {
+            const cb = card.querySelector('input[name="enabled"]');
+            sensor.enabled = cb ? cb.checked : false;
+            sensor.channel = parseInt(card.querySelector('input[name="channel"]').value);
+
+            const inputs = card.querySelectorAll('.ads1115-fields input, .ads1115-fields select');
+            const floatFields = ['min_value', 'max_value', 'factor'];
+            inputs.forEach(input => {
+                const name = input.name;
+                let value = input.value.trim();
+                if (input.type === 'number' && value !== '') {
+                    value = floatFields.includes(name) ? parseFloat(value) : parseInt(value);
+                }
+                if (value !== '') sensor[name] = value;
+            });
+
+            // Always include all 4 channels so UI remembers disabled ones
+            sensors.push(sensor);
+            return;
+        }
+
         // Get all inputs within this card
         const inputs = card.querySelectorAll('input, select');
         inputs.forEach(input => {
@@ -737,7 +858,12 @@ function saveSensors() {
 
             // Convert numeric fields
             if (input.type === 'number' && value) {
-                value = parseInt(value);
+                const floatFields = ['min_value', 'max_value', 'factor'];
+                if (floatFields.includes(name)) {
+                    value = parseFloat(value);
+                } else {
+                    value = parseInt(value);
+                }
             }
 
             if (value !== '' || name === 'port') {  // Include port even if empty (has default)
@@ -766,8 +892,10 @@ function saveSensors() {
         }
     });
 
-    if (sensors.length === 0) {
-        alert('⚠️ No valid sensors configured. Please add at least one sensor.');
+    const nonADS = sensors.filter(s => s.type !== 'ads1115');
+    const adsEnabled = sensors.filter(s => s.type === 'ads1115' && s.enabled);
+    if (nonADS.length === 0 && adsEnabled.length === 0) {
+        alert('⚠️ No valid sensors configured. Please add at least one sensor or enable an ADS1115 channel.');
         return;
     }
 

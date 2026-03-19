@@ -7,3 +7,5 @@ pytz==2023.3
 python-dotenv==1.0.0
 pymodbus==3.5.4
 pyserial==3.5
+# ADS1115 ADC (Raspberry Pi only - install manually on Pi)
+# pip install adafruit-circuitpython-ads1x15

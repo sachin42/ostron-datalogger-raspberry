@@ -422,11 +422,23 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
             else:
                 logger.warning("RTU device not configured, skipping Modbus RTU sensors")
 
-        # Fetch Analog sensors
+        # Fetch Analog sensors (server-client via REST API)
         if analog_sensors:
             analog_data = fetch_analog_sensors(analog_sensors)
             all_sensors.update(analog_data)
             logger.debug(f"Fetched {len(analog_data)} Analog sensors")
+
+        # Fetch ADS1115 sensors (direct I2C on Raspberry Pi)
+        ads1115_sensors = []
+        for sensor in sensors_list:
+            if sensor.get('type') == 'ads1115':
+                ads1115_sensors.append(sensor)
+
+        if ads1115_sensors:
+            from .ads1115_fetcher import fetch_ads1115_sensors
+            ads_data = fetch_ads1115_sensors(ads1115_sensors)
+            all_sensors.update(ads_data)
+            logger.debug(f"Fetched {len(ads_data)} ADS1115 sensors")
 
         logger.debug(f"Total sensors fetched: {len(all_sensors)}")
         return all_sensors

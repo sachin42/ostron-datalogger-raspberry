@@ -125,6 +125,19 @@ def validate_sensors_config(sensors_data: dict) -> Tuple[bool, str]:
             if missing:
                 return False, f"Analog sensor {idx+1}: missing {', '.join(missing)}"
 
+        elif sensor_type == 'ads1115':
+            channel = sensor.get('channel')
+            if channel not in (0, 1, 2, 3):
+                return False, f"ADS1115 sensor {idx+1}: channel must be 0-3"
+            if sensor.get('enabled', False):
+                if not sensor.get('param_name', '').strip():
+                    return False, f"ADS1115 channel {channel}: param_name required when enabled"
+                if not sensor.get('unit', '').strip():
+                    return False, f"ADS1115 channel {channel}: unit required when enabled"
+                scale_method = sensor.get('scale_method', 'range')
+                if scale_method not in ('range', 'factor'):
+                    return False, f"ADS1115 channel {channel}: scale_method must be 'range' or 'factor'"
+
         else:
             return False, f"Sensor {idx+1}: unknown type '{sensor_type}'"
 

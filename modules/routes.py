@@ -43,10 +43,22 @@ def register_routes(app, auth):
         env_config = load_env_config()
         sensors_config = load_sensors_config()
 
+        # Build a 4-element list for ADS1115 channels (one per channel, with defaults)
+        all_sensors = sensors_config.get('sensors', [])
+        ads_by_ch = {s['channel']: s for s in all_sensors if s.get('type') == 'ads1115'}
+        ads1115_channels = [
+            ads_by_ch.get(ch, {
+                'channel': ch, 'enabled': False, 'param_name': '', 'unit': '',
+                'scale_method': 'range', 'min_value': 0.0, 'max_value': 100.0, 'factor': 1.0
+            })
+            for ch in range(4)
+        ]
+
         return render_template('sensors.html',
                              env_config=env_config,
-                             sensors=sensors_config.get('sensors', []),
-                             rtu_device=sensors_config.get('rtu_device'))
+                             sensors=all_sensors,
+                             rtu_device=sensors_config.get('rtu_device'),
+                             ads1115_channels=ads1115_channels)
 
     @app.route('/settings')
     @auth.login_required
