@@ -1,9 +1,11 @@
+# cat << EOF > modules/payload.py
 import json
 from typing import Tuple
 from .config import get_env
 from .utils import get_aligned_timestamp_ms
 
 
+# def build_plain_payload(sensors: dict, device_id: str, station_id: str) -> Tuple[str, int, str]:
 def build_plain_payload(sensors: dict, device_id: str, station_id: str) -> Tuple[str, int]:
     """Build plain JSON payload with aligned timestamps and 'U' flag"""
     params = []
@@ -35,5 +37,22 @@ def build_plain_payload(sensors: dict, device_id: str, station_id: str) -> Tuple
             }
         ]
     }
+    # payload1 = {
+    #     "UID": f"{get_env('uid', '')}",
+    #     "data": [
+    #         {
+    #             "stationId": station_id,
+    #             "device_data": [
+    #                 {
+    #                     "deviceId": device_id,
+    #                     "params": params
+    #                 }
+    #             ]
+    #         }
+    #     ]
+    # }
 
+    # print(f"Built plain payload: {json.dumps(payload1, separators=(",", ":"))}")
+    # return json.dumps(payload, separators=(",", ":")), ts, json.dumps(payload1, separators=(",", ":"))
     return json.dumps(payload, separators=(",", ":")), ts
+# EOF

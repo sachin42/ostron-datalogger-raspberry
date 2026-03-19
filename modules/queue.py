@@ -73,7 +73,7 @@ def _retry_queue_worker():
                     "signature": signature
                 }
 
-                response = requests.post(endpoint, data=item['encrypted_payload'], headers=headers, timeout=90)
+                response = requests.post(endpoint, data=item['encrypted_payload'], headers=headers, timeout=90, verify=False)
                 logger.debug(f"Retry send status: {response.status_code} - {response.text}")
 
                 if response.status_code == 200:
