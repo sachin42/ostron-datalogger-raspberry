@@ -51,6 +51,9 @@ def data_collection_thread():
 
                     # Update fetch success status
                     expected_count = len(sensors_config.get('sensors', []))
+                    for sensor in sensors_config.get('sensors', []):
+                        if sensor.get("type") == "ads1115" and sensor.get("enabled") == False:
+                            expected_count -= 1
                     if len(sensors) == expected_count:
                         status.update_fetch_success()
                         notify_fetch()
