@@ -15,6 +15,7 @@ from .network import (
 from .queue import load_queue, save_queue, retry_failed_transmissions
 from .utils import get_aligned_timestamp_ms
 from .data_collector import data_collector
+from .led_status import notify_fetch, notify_cpcb_success, notify_cpcb_failure
 
 
 def data_collection_thread():
@@ -52,6 +53,7 @@ def data_collection_thread():
                     expected_count = len(sensors_config.get('sensors', []))
                     if len(sensors) == expected_count:
                         status.update_fetch_success()
+                        notify_fetch()
                 else:
                     logger.warning("No sensor data collected")
 
@@ -162,6 +164,7 @@ def logger_thread():
                     if success:
                         status.update_send_success()
                         status.clear_error()
+                        notify_cpcb_success()
                         logger.info("Data sent successfully")
 
                         # Retry queued data after successful send
@@ -169,6 +172,7 @@ def logger_thread():
                     else:
                         status.increment_failed()
                         status.set_error(f"Status {status_code}: {text}")
+                        notify_cpcb_failure()
 
                         # Send error to endpoint once per loop (15 minutes)
                         send_error_to_endpoint("SEND_FAILED", status.last_error)
