@@ -102,15 +102,14 @@ def _cleanup_hardware() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Channel map — built lazily after library is confirmed available
+# Channel validation
 # ---------------------------------------------------------------------------
-def _channel_pin(channel: int):
-    """Return the ADS pin constant for a channel number (0-3)."""
-    pins = {0: ADS.P0, 1: ADS.P1, 2: ADS.P2, 3: ADS.P3}
-    pin = pins.get(channel)
-    if pin is None:
+def _channel_pin(channel: int) -> int:
+    """Validate and return the channel number (0-3).
+    AnalogIn accepts plain integers — P0/P1/P2/P3 are just 0/1/2/3."""
+    if channel not in (0, 1, 2, 3):
         raise ValueError(f"Invalid channel {channel}, must be 0-3")
-    return pin
+    return channel
 
 
 # ---------------------------------------------------------------------------
