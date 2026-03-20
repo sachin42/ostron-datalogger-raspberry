@@ -387,18 +387,34 @@
                     </div>
 
                     <!-- Range fields -->
-                    <div class="form-row ads1115-range-fields" {% if ch.get('scale_method') == 'factor' %}style="display:none"{% endif %}>
-                        <div class="form-group">
-                            <label>Min Value <span class="required">*</span></label>
-                            <input type="number" step="any" class="form-control" name="min_value"
-                                   value="{{ ch.get('min_value', 0.0) }}" placeholder="0.0">
-                            <small class="form-text">Engineering value at 4mA</small>
+                    <div class="ads1115-range-fields" {% if ch.get('scale_method') == 'factor' %}style="display:none"{% endif %}>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Min Value <span class="required">*</span></label>
+                                <input type="number" step="any" class="form-control" name="min_value"
+                                       value="{{ ch.get('min_value', 0.0) }}" placeholder="0.0">
+                                <small class="form-text">Engineering value at 4mA</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Value <span class="required">*</span></label>
+                                <input type="number" step="any" class="form-control" name="max_value"
+                                       value="{{ ch.get('max_value', 100.0) }}" placeholder="100.0">
+                                <small class="form-text">Engineering value at 20mA</small>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Max Value <span class="required">*</span></label>
-                            <input type="number" step="any" class="form-control" name="max_value"
-                                   value="{{ ch.get('max_value', 100.0) }}" placeholder="100.0">
-                            <small class="form-text">Engineering value at 20mA</small>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Calibration — Voltage at 4mA (V)</label>
+                                <input type="number" step="0.0001" class="form-control" name="min_voltage"
+                                       value="{{ ch.get('min_voltage', '') }}" placeholder="0.6000">
+                                <small class="form-text">Measured at AINx pin with 4mA input. Leave blank to use default (0.6V)</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Calibration — Voltage at 20mA (V)</label>
+                                <input type="number" step="0.0001" class="form-control" name="max_voltage"
+                                       value="{{ ch.get('max_voltage', '') }}" placeholder="3.0000">
+                                <small class="form-text">Measured at AINx pin with 20mA input. Leave blank to use default (3.0V)</small>
+                            </div>
                         </div>
                     </div>
 
@@ -755,8 +771,8 @@ function toggleADS1115Channel(cb) {
 
 function toggleADS1115ScaleFields(sel) {
     const card = sel.closest('.sensor-config-card');
-    card.querySelector('.ads1115-range-fields').style.display  = sel.value === 'range'  ? '' : 'none';
-    card.querySelector('.ads1115-factor-fields').style.display = sel.value === 'factor' ? '' : 'none';
+    card.querySelectorAll('.ads1115-range-fields').forEach(el  => el.style.display = sel.value === 'range'  ? '' : 'none');
+    card.querySelectorAll('.ads1115-factor-fields').forEach(el => el.style.display = sel.value === 'factor' ? '' : 'none');
 }
 
 function addAnalogSensor() {
@@ -835,7 +851,7 @@ function saveSensors() {
             sensor.channel = parseInt(card.querySelector('input[name="channel"]').value);
 
             const inputs = card.querySelectorAll('.ads1115-fields input, .ads1115-fields select');
-            const floatFields = ['min_value', 'max_value', 'factor'];
+            const floatFields = ['min_value', 'max_value', 'factor', 'min_voltage', 'max_voltage'];
             inputs.forEach(input => {
                 const name = input.name;
                 let value = input.value.trim();

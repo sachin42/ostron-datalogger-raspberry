@@ -29,6 +29,11 @@ GAIN        = 1         # ±4.096V range
 MA_MIN = 4.0
 MA_MAX = 20.0
 
+# Theoretical voltages across 150Ω shunt — used as defaults when the user
+# has not entered measured calibration voltages
+V_AT_4MA  = MA_MIN * SHUNT_OHMS / 1000   # 0.6 V (ideal)
+V_AT_20MA = MA_MAX * SHUNT_OHMS / 1000   # 3.0 V (ideal)
+
 try:
     import board
     import busio
@@ -137,9 +142,16 @@ def _voltage_to_ma(voltage: float) -> float:
     return voltage / SHUNT_OHMS * 1000.0
 
 
-def _scale_range(current_ma: float, min_value: float, max_value: float) -> float:
-    """Linear interpolation: maps 4-20mA onto [min_value, max_value], clamped."""
-    ratio = (current_ma - MA_MIN) / (MA_MAX - MA_MIN)
+def _scale_range(voltage: float, v_4ma: float, v_20ma: float,
+                 min_value: float, max_value: float) -> float:
+    """
+    Two-point calibration: maps measured voltage directly onto [min_value, max_value].
+    v_4ma / v_20ma are the voltages measured at your actual hardware at 4mA and 20mA.
+    Interpolating from voltage (not mA) absorbs all hardware errors — shunt tolerance,
+    series resistor drop, ADC input impedance — in one calibration step.
+    Result is clamped to [min_value, max_value].
+    """
+    ratio = (voltage - v_4ma) / (v_20ma - v_4ma)
     value = min_value + ratio * (max_value - min_value)
     return max(min_value, min(max_value, value))
 
@@ -185,8 +197,12 @@ def fetch_ads1115_sensors(sensors_config: List[Dict]) -> Dict[str, Dict[str, Any
 
         try:
             if scale_method == 'range':
+                # Use measured calibration voltages if provided, else theoretical defaults
+                v_4ma  = float(sensor.get('min_voltage', V_AT_4MA))
+                v_20ma = float(sensor.get('max_voltage', V_AT_20MA))
                 value = _scale_range(
-                    current_ma,
+                    voltage,
+                    v_4ma, v_20ma,
                     float(sensor.get('min_value', 0.0)),
                     float(sensor.get('max_value', 100.0))
                 )
