@@ -1,4 +1,4 @@
-# cat << EOF > modules/network.py
+cat << EOF > modules/network.py
 import json
 import time
 import socket
@@ -78,8 +78,7 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
     token_id = get_env('token_id', '')
     public_key_pem = get_env('public_key', '')
 
-    plain_json, ts = build_plain_payload(sensors, device_id, station_id)
-    # plain_json, ts, plain_json1 = build_plain_payload(sensors, device_id, station_id)
+    plain_json, ts, plain_json1 = build_plain_payload(sensors, device_id, station_id)
     encrypted_payload = encrypt_payload(plain_json, token_id)
     signature = generate_signature(token_id, public_key_pem)
     headers = {
@@ -90,16 +89,14 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
     last_response = None
     last_status_code = 0
 
-    # sent_private = False
+    sent_private = False
 
     for attempt in range(max_retries):
+        if get_env('private_server', False) and not sent_private:
+                res = requests.post(get_env('private_server_url'), data=plain_json1, timeout=20)
+                logger.info(f"Plain JSON send status: {res.status_code} - {res.text}")
+                sent_private = True
         try:
-            # if not sent_private:
-            #     logger.info(f"Attempt {attempt + 1}/{max_retries} - Sending private server data: {plain_json1}")
-            #     res = requests.post("http://4.186.29.119/Api/save_environment", data=plain_json1, timeout=20)
-            #     logger.info(f"Plain JSON send status: {res.status_code} - {res.text}")
-            #     sent_private = True
-
             logger.info(f"Attempt {attempt + 1}/{max_retries} - Plain JSON: {plain_json}")
             response = requests.post(endpoint, data=encrypted_payload, headers=headers, timeout=90, verify=False)
             logger.info(f"Send status: {response.status_code} - {response.text}")
@@ -446,4 +443,4 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error in fetch_all_sensors: {e}")
         return {}
-# EOF
+EOF
