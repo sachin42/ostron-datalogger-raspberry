@@ -1,4 +1,4 @@
-cat << EOF > modules/network.py
+# cat << EOF > modules/network.py
 import json
 import time
 import socket
@@ -443,4 +443,4 @@ def fetch_all_sensors(sensors_config: dict) -> Dict[str, Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error in fetch_all_sensors: {e}")
         return {}
-EOF
+# EOF

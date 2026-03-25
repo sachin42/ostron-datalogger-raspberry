@@ -1,4 +1,4 @@
-cat << EOF > modules/payload.py
+# cat << EOF > modules/payload.py
 import json
 from typing import Tuple
 from .config import get_env
@@ -53,4 +53,4 @@ def build_plain_payload(sensors: dict, device_id: str, station_id: str) -> Tuple
     }
 
     return json.dumps(payload, separators=(",", ":")), ts, json.dumps(payload1, separators=(",", ":"))
-EOF
+# EOF

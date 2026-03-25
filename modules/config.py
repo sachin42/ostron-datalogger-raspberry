@@ -1,4 +1,4 @@
-cat << EOF > modules/config.py
+# cat << EOF > modules/config.py
 import json
 import os
 from typing import Tuple
@@ -145,4 +145,4 @@ def validate_sensors_config(sensors_data: dict) -> Tuple[bool, str]:
             return False, f"Sensor {idx+1}: unknown type '{sensor_type}'"
 
     return True, "Configuration valid"
-EOF
+# EOF
