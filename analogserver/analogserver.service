@@ -7,13 +7,13 @@ Wants=network-online.target
 Type=simple
 User=logger
 Group=logger
-WorkingDirectory=/home/logger/datalogger
+WorkingDirectory=/home/logger/datalogger/analogserver
 ExecStart=/home/logger/datalogger/analogserver/analogserver.sh
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=datalogger
+SyslogIdentifier=analogserver
 
 [Install]
 WantedBy=multi-user.target

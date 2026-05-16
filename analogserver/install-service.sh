@@ -1,15 +1,15 @@
 #!/bin/bash
 
-echo "=== DataLogger Service Installation Script ==="
+echo "=== Analog server Service Installation Script ==="
 
 INSTALL_DIR="/home/logger/datalogger/analogserver"
 SERVICE_FILE="/etc/systemd/system/analogserver.service"
 WRAPPER_SCRIPT="$INSTALL_DIR/analogserver.sh"
 
-if [ "$EUID" -ne 0 ]; then 
-    echo "ERROR: Please run as root (sudo $0)"
-    exit 1
-fi
+# if [ "$EUID" -ne 0 ]; then 
+#     echo "ERROR: Please run as root (sudo $0)"
+#     exit 1
+# fi
 
 echo "Installing systemd service file..."
 cp analogserver.service "$SERVICE_FILE"
