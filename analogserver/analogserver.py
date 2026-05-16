@@ -29,7 +29,7 @@ device_connected = False
 def get_default_config():
     return {
         'device': {
-            'port': 'COM31',  # Change to /dev/ttyUSB0 for Linux
+            'port': '/dev/rs485',  # Change to /dev/ttyUSB0 for Linux
             'baudrate': 9600,
             'parity': 'N',
             'stopbits': 1,
