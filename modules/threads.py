@@ -9,6 +9,7 @@ from .crypto import encrypt_payload
 from .payload import build_plain_payload
 from .network import (
     send_to_server,
+    send_to_private_server,
     fetch_all_sensors,
     send_error_to_endpoint
 )
@@ -37,28 +38,26 @@ def data_collection_thread():
         try:
             sensors_config = load_sensors_config()
 
-            # Only collect data if server is running
-            if sensors_config.get('server_running', False):
-                # Fetch sensor data from all sources
-                sensors = fetch_all_sensors(sensors_config)
+            # Fetch sensor data from all sources (always runs — also feeds private server)
+            sensors = fetch_all_sensors(sensors_config)
 
-                if sensors:
-                    # Add readings to collector for averaging
-                    data_collector.add_readings(sensors)
+            if sensors:
+                # Add readings to collector for averaging
+                data_collector.add_readings(sensors)
 
-                    reading_counts = data_collector.get_reading_counts()
-                    logger.debug(f"Collected readings - counts: {reading_counts}")
+                reading_counts = data_collector.get_reading_counts()
+                logger.debug(f"Collected readings - counts: {reading_counts}")
 
-                    # Update fetch success status
-                    expected_count = len(sensors_config.get('sensors', []))
-                    for sensor in sensors_config.get('sensors', []):
-                        if sensor.get("type") == "ads1115" and sensor.get("enabled") == False:
-                            expected_count -= 1
-                    if len(sensors) == expected_count:
-                        status.update_fetch_success()
-                        notify_fetch()
-                else:
-                    logger.warning("No sensor data collected")
+                # Update fetch success status
+                expected_count = len(sensors_config.get('sensors', []))
+                for sensor in sensors_config.get('sensors', []):
+                    if sensor.get("type") == "ads1115" and sensor.get("enabled") == False:
+                        expected_count -= 1
+                if len(sensors) == expected_count:
+                    status.update_fetch_success()
+                    notify_fetch()
+            else:
+                logger.warning("No sensor data collected")
 
             # Wait for next collection interval
             time.sleep(fetch_interval)
@@ -205,4 +204,70 @@ def logger_thread():
 
         except Exception as e:
             logger.error(f"Error in logger thread: {e}")
+            time.sleep(10)
+
+
+def private_server_thread():
+    """Send averaged data to private server — independent of server_running flag, shares data_collector with logger_thread."""
+    if not get_env('private_server', False):
+        logger.info("PRIVATE_SERVER is false, private server thread not started")
+        return
+
+    dev_mode = get_env('dev_mode', False)
+    alignment_minutes = 1 if dev_mode else 15
+    interval_seconds = alignment_minutes * 60
+
+    logger.info(f"Private server thread started — sending averaged data every {interval_seconds}s (unencrypted)")
+
+    now = datetime.now(IST)
+    current_ts = now.timestamp()
+    aligned_ts = math.ceil(current_ts / interval_seconds) * interval_seconds
+    next_send_time = aligned_ts
+    last_send = 0
+
+    while True:
+        try:
+            current = time.time()
+
+            should_send = False
+            if last_send == 0:
+                if current >= next_send_time:
+                    should_send = True
+                    last_send = next_send_time
+                else:
+                    time.sleep(min(5, next_send_time - current))
+                    continue
+            else:
+                if current - last_send >= interval_seconds:
+                    should_send = True
+                    last_send += interval_seconds
+                else:
+                    time.sleep(5)
+                    continue
+
+            if should_send:
+                sensors_config = load_sensors_config()
+                averages = data_collector.get_averages_and_clear()
+
+                if averages:
+                    sensors = {}
+                    for sensor in sensors_config.get('sensors', []):
+                        param_name = sensor.get('param_name')
+                        if param_name in averages:
+                            sensors[param_name] = {
+                                'value': str(round(averages[param_name], 2)),
+                                'unit': sensor.get('unit', '')
+                            }
+
+                    if sensors:
+                        send_to_private_server(sensors)
+                    else:
+                        logger.warning("No matched sensor data for private server")
+                else:
+                    logger.warning("No averaged data for private server")
+
+            time.sleep(5)
+
+        except Exception as e:
+            logger.error(f"Error in private server thread: {e}")
             time.sleep(10)

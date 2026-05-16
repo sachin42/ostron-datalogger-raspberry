@@ -78,7 +78,7 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
     token_id = get_env('token_id', '')
     public_key_pem = get_env('public_key', '')
 
-    plain_json, ts, plain_json1 = build_plain_payload(sensors, device_id, station_id)
+    plain_json, ts, _ = build_plain_payload(sensors, device_id, station_id)
     encrypted_payload = encrypt_payload(plain_json, token_id)
     signature = generate_signature(token_id, public_key_pem)
     headers = {
@@ -89,13 +89,7 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
     last_response = None
     last_status_code = 0
 
-    sent_private = False
-
     for attempt in range(max_retries):
-        if get_env('private_server', False) and not sent_private:
-                res = requests.post(get_env('private_server_url'), data=plain_json1, timeout=20)
-                logger.info(f"Plain JSON send status: {res.status_code} - {res.text}")
-                sent_private = True
         try:
             logger.info(f"Attempt {attempt + 1}/{max_retries} - Plain JSON: {plain_json}")
             response = requests.post(endpoint, data=encrypted_payload, headers=headers, timeout=90, verify=False)
@@ -151,6 +145,31 @@ def send_to_server(sensors: dict, endpoint: str = None, max_retries: int = 3) ->
     error_msg = last_response if last_response else "Max retries exceeded - No response from server"
     logger.error(f"All retries failed: {error_msg}")
     return False, last_status_code, error_msg, True, encrypted_payload, ts
+
+
+def send_to_private_server(sensors: dict) -> bool:
+    """Send unencrypted plain JSON to the private server relay."""
+    if not sensors:
+        logger.warning("No sensor data to send to private server")
+        return False
+
+    device_id = get_env('device_id', '')
+    station_id = get_env('station_id', '')
+    server_url = get_env('private_server_url', '')
+
+    if not server_url:
+        logger.warning("PRIVATE_SERVER_URL not configured")
+        return False
+
+    _, _, plain_json = build_plain_payload(sensors, device_id, station_id)
+
+    try:
+        res = requests.post(server_url, data=plain_json, timeout=20)
+        logger.info(f"Private server send: {res.status_code} - {res.text}")
+        return res.status_code == 200
+    except Exception as e:
+        logger.error(f"Failed to send to private server: {e}")
+        return False
 
 
 def _fetch_raw_http(url: str, timeout: int = 10) -> str:

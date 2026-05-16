@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from modules.constants import logger
 from modules.config import load_env_config
-from modules.threads import data_collection_thread, logger_thread, heartbeat_thread
+from modules.threads import data_collection_thread, logger_thread, heartbeat_thread, private_server_thread
 from modules.led_status import led_status_thread
 from modules.routes import register_routes
 
@@ -49,6 +49,10 @@ if __name__ == '__main__':
     # Start LED status thread (GPIO on Raspberry Pi — no-op on other platforms)
     led_thread_obj = threading.Thread(target=led_status_thread, daemon=True, name="led-status")
     led_thread_obj.start()
+
+    # Start private server thread (independent — does not check server_running)
+    private_thread_obj = threading.Thread(target=private_server_thread, daemon=True, name="private-server")
+    private_thread_obj.start()
 
     logger.info("Datalogger application started")
 
